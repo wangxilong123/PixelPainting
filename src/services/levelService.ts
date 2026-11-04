@@ -1,4 +1,22 @@
+import { presetLevels } from '../data/levels'
 import type { Level } from '../models/level'
+
+const levelIds = new Set<string>()
+for (const level of presetLevels) {
+  if (levelIds.has(level.id)) {
+    throw new Error(`Duplicate preset level ID ${level.id}`)
+  }
+  validateLevel(level)
+  levelIds.add(level.id)
+}
+
+export function getLevels(): Level[] {
+  return [...presetLevels]
+}
+
+export function getLevelById(id: string): Level | undefined {
+  return presetLevels.find((level) => level.id === id)
+}
 
 export function validateLevel(level: Level): void {
   const { id, width, height, palette, cells } = level

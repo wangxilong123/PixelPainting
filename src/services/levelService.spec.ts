@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { Level } from '../models/level'
-import { getInteractiveCellCount, validateLevel } from './levelService'
+import {
+  getInteractiveCellCount,
+  getLevelById,
+  getLevels,
+  validateLevel,
+} from './levelService'
 
 const sample: Level = {
   id: 'test-level',
@@ -73,5 +78,31 @@ describe('validateLevel', () => {
 describe('getInteractiveCellCount', () => {
   it('excludes empty cells', () => {
     expect(getInteractiveCellCount(sample)).toBe(4)
+  })
+})
+
+describe('preset levels', () => {
+  it('lists three valid levels in unlock order', () => {
+    const levels = getLevels()
+    const ids = levels.map((level) => level.id)
+
+    expect(ids).toEqual(['level-001', 'level-002', 'level-003'])
+    expect(new Set(ids).size).toBe(levels.length)
+    expect(levels.map((level) => level.category)).toEqual(['animal', 'food', 'plant'])
+    expect(levels.map(getInteractiveCellCount)).toEqual([38, 39, 25])
+    for (const level of levels) {
+      expect(() => validateLevel(level)).not.toThrow()
+    }
+  })
+
+  it('finds a level by its exact ID', () => {
+    expect(getLevelById('level-002')?.title).toBe('红苹果')
+    expect(getLevelById('missing')).toBeUndefined()
+  })
+
+  it('keeps the catalog order when a caller reorders the returned list', () => {
+    getLevels().reverse()
+
+    expect(getLevels()[0]?.id).toBe('level-001')
   })
 })
