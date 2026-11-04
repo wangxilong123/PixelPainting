@@ -19,12 +19,28 @@ export type Level = {
   thumbnail?: string
 }
 
+export type LevelViewport = {
+  scale: number
+  offsetX: number
+  offsetY: number
+}
+
+export type LevelResult = {
+  completedAt: string
+  stars: 1 | 2 | 3
+  elapsedSeconds: number
+  hintsUsed: number
+}
+
 export type LevelProgress = {
   levelId: string
+  /** Color IDs at the same indexes as Level.cells. Zero means unpainted. */
   painted: number[]
   startedAt?: string
   completedAt?: string
   hintsUsed: number
   elapsedSeconds: number
   stars?: 1 | 2 | 3
+  viewport?: LevelViewport
+  bestResult?: LevelResult
 }
