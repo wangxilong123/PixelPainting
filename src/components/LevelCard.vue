@@ -1,0 +1,120 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import type { Level } from '../models/level'
+
+const props = defineProps<{
+  level: Level
+  unlocked: boolean
+  stars?: 1 | 2 | 3
+  completed: boolean
+}>()
+
+const emit = defineEmits<{ open: [] }>()
+
+const difficultyLabels = ['', '简单', '普通', '进阶']
+
+const preview = computed(() => {
+  const hexes = new Map(props.level.palette.map((color) => [color.id, color.hex]))
+  return props.level.cells.map((id) => (id === 0 ? null : hexes.get(id) ?? null))
+})
+
+function activate(): void {
+  if (props.unlocked) emit('open')
+}
+</script>
+
+<template>
+  <button
+    type="button"
+    class="level-card"
+    :class="{ locked: !unlocked }"
+    :data-level-id="level.id"
+    :aria-disabled="unlocked ? undefined : 'true'"
+    @click="activate"
+  >
+    <span
+      class="level-preview"
+      aria-hidden="true"
+      :style="{
+        gridTemplateColumns: `repeat(${level.width}, 1fr)`,
+        aspectRatio: `${level.width} / ${level.height}`,
+      }"
+    >
+      <span
+        v-for="(hex, index) in preview"
+        :key="index"
+        class="preview-cell"
+        :style="hex ? { background: hex } : undefined"
+      />
+    </span>
+    <span class="level-title">{{ level.title }}</span>
+    <span class="level-meta">
+      {{ difficultyLabels[level.difficulty] }} · {{ level.width }}×{{ level.height }}
+    </span>
+    <span v-if="!unlocked" class="level-badge">锁定</span>
+    <template v-else-if="completed">
+      <span class="level-stars" aria-label="星级">{{ '★'.repeat(stars ?? 0) }}{{ '☆'.repeat(3 - (stars ?? 0)) }}</span>
+      <span class="level-badge done">已完成</span>
+    </template>
+  </button>
+</template>
+
+<style scoped>
+.level-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: var(--space-4);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.level-card.locked {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.level-preview {
+  display: grid;
+  gap: 1px;
+  width: 5rem;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+}
+
+.preview-cell {
+  background: transparent;
+}
+
+.level-title {
+  font-weight: 600;
+}
+
+.level-meta {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.level-stars {
+  color: var(--color-primary);
+  letter-spacing: 0.15rem;
+}
+
+.level-badge {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.level-badge.done {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+</style>

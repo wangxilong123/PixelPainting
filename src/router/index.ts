@@ -1,5 +1,7 @@
 import { h } from 'vue'
 import { createRouter, createWebHistory, type RouterHistory } from 'vue-router'
+import HomePage from '../pages/HomePage.vue'
+import LevelSelectPage from '../pages/LevelSelectPage.vue'
 
 export function createAppRouter(
   history: RouterHistory = createWebHistory(import.meta.env.BASE_URL),
@@ -10,12 +12,12 @@ export function createAppRouter(
       {
         path: '/',
         name: 'home',
-        component: { render: () => h('h2', '欢迎来到像素涂色') },
+        component: HomePage,
       },
       {
         path: '/levels',
         name: 'levels',
-        component: { render: () => h('h2', '关卡列表即将到来') },
+        component: LevelSelectPage,
       },
       {
         path: '/game/:levelId',

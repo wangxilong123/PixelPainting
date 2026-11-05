@@ -13,7 +13,7 @@ describe('App', () => {
     const wrapper = mount(App, { global: { plugins: [router] } })
     try {
       expect(wrapper.get('h1').text()).toBe('像素涂色')
-      expect(wrapper.get('main h2').text()).toBe('欢迎来到像素涂色')
+      expect(wrapper.get('main').text()).toContain('开始游戏')
       const link = wrapper.get('a[href="/levels"]')
       expect(link.text()).toBe('进入关卡列表')
 
@@ -21,7 +21,7 @@ describe('App', () => {
       await flushPromises()
 
       expect(router.currentRoute.value.path).toBe('/levels')
-      expect(wrapper.get('main h2').text()).toBe('关卡列表即将到来')
+      expect(wrapper.get('main').text()).toContain('橘猫')
     } finally {
       wrapper.unmount()
     }
