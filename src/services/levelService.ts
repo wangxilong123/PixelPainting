@@ -1,3 +1,4 @@
+import { levelCategories, normalizeCategory, type LevelCategoryEntry } from '../data/categories'
 import { presetLevels } from '../data/levels'
 import type { Level } from '../models/level'
 
@@ -16,6 +17,11 @@ export function getLevels(): Level[] {
 
 export function getLevelById(id: string): Level | undefined {
   return presetLevels.find((level) => level.id === id)
+}
+
+export function getCategories(): LevelCategoryEntry[] {
+  const present = new Set(presetLevels.map((level) => normalizeCategory(level.category).id))
+  return levelCategories.filter((entry) => present.has(entry.id))
 }
 
 export function validateLevel(level: Level): void {

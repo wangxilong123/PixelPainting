@@ -1,4 +1,5 @@
-export type LevelCategory = 'animal' | 'food' | 'plant' | 'vehicle'
+/** Registry ID from src/data/categories.ts. Unknown IDs fall back to 其他. */
+export type LevelCategory = string
 
 export type PaletteColor = {
   id: number

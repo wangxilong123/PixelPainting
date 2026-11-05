@@ -3,8 +3,9 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import LevelCard from '../components/LevelCard.vue'
 import { useLevelProgress } from '../composables/useLevelProgress'
-import type { Level, LevelCategory } from '../models/level'
-import { getLevels } from '../services/levelService'
+import { normalizeCategory } from '../data/categories'
+import type { Level } from '../models/level'
+import { getCategories, getLevels } from '../services/levelService'
 import { isLevelUnlocked } from '../services/progressService'
 
 type LevelEntry = {
@@ -14,28 +15,17 @@ type LevelEntry = {
   completed: boolean
 }
 
-const categoryTitles: Record<LevelCategory, string> = {
-  animal: '动物',
-  food: '食物',
-  plant: '植物',
-  vehicle: '载具',
-}
-
 const router = useRouter()
 const levels = getLevels()
 const { levelRecords } = useLevelProgress()
 
 const groups = computed(() => {
   const records = levelRecords.value
-  const order: LevelCategory[] = []
-  const entries = new Map<LevelCategory, LevelEntry[]>()
+  const entries = new Map<string, LevelEntry[]>()
   for (const level of levels) {
-    let list = entries.get(level.category)
-    if (!list) {
-      list = []
-      entries.set(level.category, list)
-      order.push(level.category)
-    }
+    const category = normalizeCategory(level.category).id
+    const list = entries.get(category) ?? []
+    entries.set(category, list)
     const attempt = records[level.id]
     list.push({
       level,
@@ -44,10 +34,10 @@ const groups = computed(() => {
       completed: attempt?.completedAt !== undefined,
     })
   }
-  return order.map((category) => ({
-    category,
-    title: categoryTitles[category],
-    items: entries.get(category) ?? [],
+  return getCategories().map((category) => ({
+    category: category.id,
+    title: category.label,
+    items: entries.get(category.id) ?? [],
   }))
 })
 

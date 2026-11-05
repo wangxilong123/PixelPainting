@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Level } from '../models/level'
 import {
+  getCategories,
   getInteractiveCellCount,
   getLevelById,
   getLevels,
@@ -88,11 +89,19 @@ describe('preset levels', () => {
 
     expect(ids).toEqual(['level-001', 'level-002', 'level-003'])
     expect(new Set(ids).size).toBe(levels.length)
-    expect(levels.map((level) => level.category)).toEqual(['animal', 'food', 'plant'])
+    expect(levels.map((level) => level.category)).toEqual(['animal', 'food', 'other'])
     expect(levels.map(getInteractiveCellCount)).toEqual([38, 39, 25])
     for (const level of levels) {
       expect(() => validateLevel(level)).not.toThrow()
     }
+  })
+
+  it('lists only the categories that have levels, in registry order', () => {
+    expect(getCategories()).toEqual([
+      { id: 'animal', label: '动物' },
+      { id: 'food', label: '食物' },
+      { id: 'other', label: '其他' },
+    ])
   })
 
   it('finds a level by its exact ID', () => {

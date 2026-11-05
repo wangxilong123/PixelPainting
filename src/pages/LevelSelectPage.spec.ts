@@ -34,7 +34,7 @@ describe('LevelSelectPage', () => {
     const { wrapper } = await mountPage()
     try {
       expect(wrapper.findAll('.level-group h2').map((node) => node.text()))
-        .toEqual(['动物', '食物', '植物'])
+        .toEqual(['动物', '食物', '其他'])
       const cards = wrapper.findAll('[data-level-id]')
       expect(cards.map((card) => card.attributes('data-level-id')))
         .toEqual([first.id, second.id, third.id])

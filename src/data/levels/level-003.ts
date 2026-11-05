@@ -14,7 +14,7 @@ const rows = [
 export const level003: Level = {
   id: 'level-003',
   title: '盆栽小花',
-  category: 'plant',
+  category: 'other',
   difficulty: 2,
   width: 10,
   height: 8,
