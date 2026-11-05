@@ -11,8 +11,22 @@ for (const level of presetLevels) {
   levelIds.add(level.id)
 }
 
+export function sortLevels(levels: readonly Level[]): Level[] {
+  return levels
+    .map((level, index) => ({ level, index }))
+    .sort((a, b) => {
+      const left = a.level.order
+      const right = b.level.order
+      if (left === undefined && right === undefined) return a.index - b.index
+      if (left === undefined) return 1
+      if (right === undefined) return -1
+      return left - right || a.index - b.index
+    })
+    .map((entry) => entry.level)
+}
+
 export function getLevels(): Level[] {
-  return [...presetLevels]
+  return sortLevels(presetLevels)
 }
 
 export function getLevelById(id: string): Level | undefined {

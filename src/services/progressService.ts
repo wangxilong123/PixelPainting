@@ -1,10 +1,17 @@
 import { useLocalStorage } from '../composables/useLocalStorage'
 import type { Level, LevelProgress, LevelResult, LevelViewport } from '../models/level'
-import { getLevelById } from './levelService'
+import { getLevelById, getLevels } from './levelService'
 
 export type ProgressSnapshot = {
   currentLevelId: string | null
   levels: Record<string, LevelProgress>
+}
+
+export type LevelSummary = {
+  total: number
+  completed: number
+  stars: number
+  maxStars: number
 }
 
 const storage = useLocalStorage('pixel-painting:v1:progress')
@@ -65,6 +72,12 @@ export function getStars(level: Level, progress: LevelProgress): 1 | 2 | 3 {
   return progress.hintsUsed <= 2 ? 2 : 1
 }
 
+export function isLevelCleared(level: Level, attempt: LevelProgress | undefined): boolean {
+  if (attempt?.levelId !== level.id) return false
+  if (isLevelResult(attempt.bestResult)) return true
+  return isTimestamp(attempt.completedAt) && isLevelComplete(level, attempt)
+}
+
 export function isLevelUnlocked(
   levels: Level[],
   progress: Record<string, LevelProgress>,
@@ -73,13 +86,20 @@ export function isLevelUnlocked(
   const index = levels.findIndex((level) => level.id === levelId)
   if (index === -1) return false
 
-  return levels.slice(0, index).every((level) => {
-    const attempt = progress[level.id]
-    if (attempt?.levelId !== level.id) return false
+  return levels.slice(0, index).every((level) => isLevelCleared(level, progress[level.id]))
+}
 
-    if (isLevelResult(attempt.bestResult)) return true
-    return isTimestamp(attempt.completedAt) && isLevelComplete(level, attempt)
-  })
+export function getLevelSummary(records: Record<string, LevelProgress>): LevelSummary {
+  const levels = getLevels()
+  let completed = 0
+  let stars = 0
+  for (const level of levels) {
+    const record = records[level.id]
+    if (!isLevelCleared(level, record)) continue
+    completed += 1
+    stars += record?.bestResult?.stars ?? record?.stars ?? 0
+  }
+  return { total: levels.length, completed, stars, maxStars: levels.length * 3 }
 }
 
 function parseLevelProgress(level: Level, value: unknown): LevelProgress | undefined {

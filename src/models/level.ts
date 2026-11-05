@@ -18,6 +18,10 @@ export type Level = {
   /** Row-major color IDs. Zero marks an empty cell. */
   cells: number[]
   thumbnail?: string
+  /** Unlock position. Levels without one keep registration order at the end. */
+  order?: number
+  tags?: string[]
+  source?: 'preset' | 'user'
 }
 
 export type LevelViewport = {

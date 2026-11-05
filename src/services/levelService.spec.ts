@@ -5,6 +5,7 @@ import {
   getInteractiveCellCount,
   getLevelById,
   getLevels,
+  sortLevels,
   validateLevel,
 } from './levelService'
 
@@ -113,5 +114,15 @@ describe('preset levels', () => {
     getLevels().reverse()
 
     expect(getLevels()[0]?.id).toBe('level-001')
+  })
+
+  it('sorts by explicit order and leaves unordered levels in registration order', () => {
+    const unorderedFirst = { ...sample, id: 'a' }
+    const orderedSecond = { ...sample, id: 'b', order: 2 }
+    const orderedFirst = { ...sample, id: 'c', order: 1 }
+    const unorderedLast = { ...sample, id: 'd' }
+
+    expect(sortLevels([unorderedFirst, orderedSecond, orderedFirst, unorderedLast])
+      .map((level) => level.id)).toEqual(['c', 'b', 'a', 'd'])
   })
 })

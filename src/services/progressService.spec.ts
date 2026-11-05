@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Level, LevelProgress } from '../models/level'
 import { getLevels } from './levelService'
-import { createEmptyProgress, getStars, isLevelComplete, isLevelUnlocked } from './progressService'
+import { createEmptyProgress, getLevelSummary, getStars, isLevelComplete, isLevelUnlocked } from './progressService'
 
 const sample: Level = {
   id: 'test-level',
@@ -78,6 +78,29 @@ describe('progress rules', () => {
     expect(isLevelUnlocked(levels, {
       [first.id]: { ...replay, bestResult: { ...bestResult, completedAt: 'invalid' } },
     }, second.id)).toBe(false)
+  })
+})
+
+describe('getLevelSummary', () => {
+  it('counts cleared levels and their best stars', () => {
+    const [first] = getLevels()
+
+    expect(getLevelSummary({})).toEqual({ total: 3, completed: 0, stars: 0, maxStars: 9 })
+    expect(getLevelSummary({ [first.id]: { ...completedProgress(first), hintsUsed: 0 } }))
+      .toEqual({ total: 3, completed: 1, stars: 3, maxStars: 9 })
+  })
+
+  it('keeps a replayed level counted through its best result', () => {
+    const levels = getLevels()
+    const [first] = levels
+    const replay: LevelProgress = {
+      ...createEmptyProgress(first),
+      bestResult: { completedAt, stars: 2, elapsedSeconds: 19, hintsUsed: 1 },
+    }
+
+    expect(getLevelSummary({ [first.id]: replay }))
+      .toEqual({ total: 3, completed: 1, stars: 2, maxStars: 9 })
+    expect(isLevelUnlocked(levels, { [first.id]: replay }, 'level-002')).toBe(true)
   })
 })
 
