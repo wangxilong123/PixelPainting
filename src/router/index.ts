@@ -9,8 +9,13 @@ export function createAppRouter(
   return createRouter({
     history,
     routes: [
+      // 关卡模式期间根路径直接进选关页，首页素材库落地后再改回素材页
       {
         path: '/',
+        redirect: { name: 'levels' },
+      },
+      {
+        path: '/home',
         name: 'home',
         component: HomePage,
       },
