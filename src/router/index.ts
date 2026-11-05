@@ -1,7 +1,7 @@
-import { h } from 'vue'
 import { createRouter, createWebHistory, type RouterHistory } from 'vue-router'
 import HomePage from '../pages/HomePage.vue'
 import LevelSelectPage from '../pages/LevelSelectPage.vue'
+import GamePage from '../pages/GamePage.vue'
 
 export function createAppRouter(
   history: RouterHistory = createWebHistory(import.meta.env.BASE_URL),
@@ -22,7 +22,7 @@ export function createAppRouter(
       {
         path: '/game/:levelId',
         name: 'game',
-        component: { render: () => h('h2', '游戏页面即将到来') },
+        component: GamePage,
       },
     ],
   })
