@@ -1,5 +1,5 @@
 import { computed, readonly, shallowRef, type ShallowRef } from 'vue'
-import type { LevelProgress, LevelResult, LevelViewport } from '../models/level'
+import type { Level, LevelProgress, LevelResult, LevelViewport } from '../models/level'
 import { getLevelById, getLevels } from '../services/levelService'
 import {
   createEmptyProgress,
@@ -44,11 +44,35 @@ export function useLevelProgress() {
     return id === null ? undefined : state.value.levels[id]
   })
   const currentProgress = computed(() => attempt.value && readonly(attempt.value))
+  const levelRecords = computed<Record<string, LevelProgress>>(() => ({ ...state.value.levels }))
   const accuracy = computed(() => {
     const level = currentLevel.value
     const progress = attempt.value
     return level && progress ? getLevelAccuracy(level, progress) : 0
   })
+
+  function settleIfComplete(level: Level, progress: LevelProgress): void {
+    if (getLevelAccuracy(level, progress) !== 1) return
+
+    const result: LevelResult = {
+      completedAt: new Date().toISOString(),
+      stars: getStars(level, progress),
+      elapsedSeconds: progress.elapsedSeconds,
+      hintsUsed: progress.hintsUsed,
+    }
+    progress.completedAt = result.completedAt
+    progress.stars = result.stars
+    if (!progress.bestResult || isBetterResult(result, progress.bestResult)) {
+      progress.bestResult = result
+    }
+  }
+
+  function isOpenAttempt(): [Level, LevelProgress] | [] {
+    const level = currentLevel.value
+    const progress = attempt.value
+    if (!level || !progress || progress.completedAt) return []
+    return [level, progress]
+  }
 
   function saveAttempt(progress: LevelProgress): void {
     const snapshot: ProgressSnapshot = {
@@ -82,21 +106,40 @@ export function useLevelProgress() {
     const painted = [...progress.painted]
     painted[index] = colorId
     const updated = { ...progress, painted }
-    if (getLevelAccuracy(level, updated) === 1) {
-      const result: LevelResult = {
-        completedAt: new Date().toISOString(),
-        stars: getStars(level, updated),
-        elapsedSeconds: updated.elapsedSeconds,
-        hintsUsed: updated.hintsUsed,
-      }
-      updated.completedAt = result.completedAt
-      updated.stars = result.stars
-      if (!updated.bestResult || isBetterResult(result, updated.bestResult)) {
-        updated.bestResult = result
-      }
-    }
+    settleIfComplete(level, updated)
     saveAttempt(updated)
     return 'painted'
+  }
+
+  function revertCell(index: number): boolean {
+    const opened = isOpenAttempt()
+    if (!opened.length) return false
+    const [, progress] = opened
+    if (!Number.isInteger(index) || index < 0 || index >= progress.painted.length) return false
+    if (progress.painted[index] === 0) return false
+
+    const painted = [...progress.painted]
+    painted[index] = 0
+    saveAttempt({ ...progress, painted })
+    return true
+  }
+
+  function repaintCell(index: number, colorId: number): boolean {
+    const opened = isOpenAttempt()
+    if (!opened.length) return false
+    const [level, progress] = opened
+    const target = level.cells[index]
+    if (!Number.isInteger(index) || target === undefined || target === 0 || target !== colorId) {
+      return false
+    }
+    if (progress.painted[index] !== 0) return false
+
+    const painted = [...progress.painted]
+    painted[index] = colorId
+    const updated = { ...progress, painted }
+    settleIfComplete(level, updated)
+    saveAttempt(updated)
+    return true
   }
 
   function recordHint(): number | undefined {
@@ -157,9 +200,12 @@ export function useLevelProgress() {
   return {
     currentLevelId,
     currentProgress,
+    levelRecords,
     accuracy,
     openLevel,
     paintCell,
+    revertCell,
+    repaintCell,
     recordHint,
     setElapsedSeconds,
     setViewport,

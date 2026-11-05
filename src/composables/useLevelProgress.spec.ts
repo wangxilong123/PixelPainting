@@ -190,6 +190,95 @@ describe('useLevelProgress', () => {
     expect(progress.getNextLevelId()).toBe(second.id)
   })
 
+  it('exposes per-level records without leaking internal state', async () => {
+    const progress = await session()
+    expect(progress.levelRecords.value).toEqual({})
+    progress.openLevel(first.id)
+    expect(progress.levelRecords.value[first.id]?.levelId).toBe(first.id)
+    expect(progress.levelRecords.value[second.id]).toBeUndefined()
+
+    const records = progress.levelRecords.value
+    delete records[first.id]
+    progress.setElapsedSeconds(5)
+    expect(progress.levelRecords.value[first.id]?.elapsedSeconds).toBe(5)
+  })
+
+  it('reverts a painted cell and rejects invalid revert targets', async () => {
+    const progress = await session()
+    progress.openLevel(first.id)
+    const [index, color] = firstTarget(first)
+    const otherIndex = first.cells.findIndex((c, i) => c !== 0 && i !== index)
+    progress.paintCell(index, color)
+    expect(progress.accuracy.value).toBe(1 / 38)
+
+    expect(progress.revertCell(-1)).toBe(false)
+    expect(progress.revertCell(first.cells.length)).toBe(false)
+    expect(progress.revertCell(index + 0.5)).toBe(false)
+    expect(progress.revertCell(first.cells.indexOf(0))).toBe(false)
+    expect(progress.revertCell(otherIndex)).toBe(false)
+    expect(progress.currentProgress.value?.painted[index]).toBe(color)
+
+    expect(progress.revertCell(index)).toBe(true)
+    expect(progress.currentProgress.value?.painted[index]).toBe(0)
+    expect(progress.accuracy.value).toBe(0)
+    expect(progress.paintCell(index, color)).toBe('painted')
+    expect(progress.accuracy.value).toBe(1 / 38)
+
+    finishLevel(progress, first)
+    expect(progress.revertCell(index)).toBe(false)
+    expect(progress.currentProgress.value?.painted[index]).toBe(color)
+  })
+
+  it('repaints a reverted cell and rejects invalid repaint targets', async () => {
+    const progress = await session()
+    progress.openLevel(first.id)
+    const [index, color] = firstTarget(first)
+    progress.paintCell(index, color)
+    progress.revertCell(index)
+
+    expect(progress.repaintCell(-1, color)).toBe(false)
+    expect(progress.repaintCell(first.cells.length, color)).toBe(false)
+    expect(progress.repaintCell(index + 0.5, color)).toBe(false)
+    expect(progress.repaintCell(first.cells.indexOf(0), color)).toBe(false)
+    expect(progress.repaintCell(index, 99)).toBe(false)
+    expect(progress.currentProgress.value?.painted[index]).toBe(0)
+
+    expect(progress.repaintCell(index, color)).toBe(true)
+    expect(progress.currentProgress.value?.painted[index]).toBe(color)
+    expect(progress.repaintCell(index, color)).toBe(false)
+
+    finishLevel(progress, first)
+    progress.restartLevel()
+    expect(progress.repaintCell(index, color)).toBe(true)
+    finishLevel(progress, first)
+    expect(progress.repaintCell(index, color)).toBe(false)
+  })
+
+  it('settles through repaintCell and keeps the better historical best result', async () => {
+    const progress = await session()
+    progress.openLevel(first.id)
+    finishLevel(progress, first)
+    const best = progress.currentProgress.value?.bestResult
+    expect(best).toMatchObject({ stars: 3, elapsedSeconds: 0, hintsUsed: 0 })
+
+    progress.restartLevel()
+    progress.recordHint()
+    const targets = first.cells.flatMap((color, index) => (color === 0 ? [] : [[index, color]]))
+    const [[xIndex, xColor], [yIndex, yColor]] = targets
+    progress.paintCell(xIndex, xColor)
+    for (const [index, color] of targets) {
+      if (index !== xIndex && index !== yIndex) progress.paintCell(index, color)
+    }
+    expect(progress.revertCell(xIndex)).toBe(true)
+    expect(progress.paintCell(yIndex, yColor)).toBe('painted')
+    expect(progress.currentProgress.value?.completedAt).toBeUndefined()
+
+    vi.setSystemTime(new Date(finishTime))
+    expect(progress.repaintCell(xIndex, xColor)).toBe(true)
+    expect(progress.currentProgress.value).toMatchObject({ completedAt: finishTime, stars: 2 })
+    expect(progress.currentProgress.value?.bestResult).toEqual(best)
+  })
+
   it('shares progress across composable instances even when storage writes fail', async () => {
     const firstSession = await session()
     const secondSession = await session()
