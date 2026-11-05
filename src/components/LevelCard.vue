@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { Level } from '../models/level'
+import { getInteractiveCellCount } from '../services/levelService'
 import PixelPreview from './PixelPreview.vue'
 
 const props = defineProps<{
@@ -12,6 +14,8 @@ const props = defineProps<{
 const emit = defineEmits<{ open: [] }>()
 
 const difficultyLabels = ['', '简单', '普通', '进阶']
+
+const cellCount = computed(() => getInteractiveCellCount(props.level))
 
 function activate(): void {
   if (props.unlocked) emit('open')
@@ -27,10 +31,11 @@ function activate(): void {
     :aria-disabled="unlocked ? undefined : 'true'"
     @click="activate"
   >
-    <PixelPreview class="level-preview" :level="level" />
+    <img v-if="level.thumbnail" class="level-preview" :src="level.thumbnail" :alt="level.title" />
+    <PixelPreview v-else class="level-preview" :level="level" />
     <span class="level-title">{{ level.title }}</span>
     <span class="level-meta">
-      {{ difficultyLabels[level.difficulty] }} · {{ level.width }}×{{ level.height }}
+      {{ difficultyLabels[level.difficulty] }} · {{ level.width }}×{{ level.height }} · {{ cellCount }} 格
     </span>
     <span v-if="!unlocked" class="level-badge">锁定</span>
     <template v-else-if="completed">
@@ -61,7 +66,9 @@ function activate(): void {
 }
 
 .level-preview {
-  width: 5rem;
+  width: 100%;
+  max-width: 7rem;
+  object-fit: contain;
 }
 
 .level-title {

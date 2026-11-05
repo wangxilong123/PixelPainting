@@ -30,19 +30,51 @@ async function completeFirstLevel() {
 }
 
 describe('LevelSelectPage', () => {
-  it('groups levels by category and marks locked levels', async () => {
+  it('shows every level in the carousel with a summary bar and marks locked levels', async () => {
     const { wrapper } = await mountPage()
     try {
-      expect(wrapper.findAll('.level-group h2').map((node) => node.text()))
-        .toEqual(['动物', '食物', '其他'])
+      expect(wrapper.findAll('.chip').map((chip) => chip.text()))
+        .toEqual(['全部', '动物', '食物', '其他'])
+      expect(wrapper.find('.level-stats').text()).toContain('已完成 0/3')
+      expect(wrapper.find('.level-stats').text()).toContain('星级 0/9')
+      expect(wrapper.find('.level-stats').text()).toContain(first.title)
+
       const cards = wrapper.findAll('[data-level-id]')
       expect(cards.map((card) => card.attributes('data-level-id')))
         .toEqual([first.id, second.id, third.id])
-      expect(wrapper.text()).toContain('橘猫')
       expect(cards[0].attributes('aria-disabled')).toBeUndefined()
+      expect(cards[0].text()).toContain(`${first.width}×${first.height}`)
       expect(cards[1].attributes('aria-disabled')).toBe('true')
       expect(cards[1].text()).toContain('锁定')
       expect(cards[2].attributes('aria-disabled')).toBe('true')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('filters the carousel by category', async () => {
+    const { wrapper } = await mountPage()
+    try {
+      const chips = wrapper.findAll('.chip')
+      await chips[2].trigger('click')
+      expect(wrapper.findAll('[data-level-id]').map((card) => card.attributes('data-level-id')))
+        .toEqual([second.id])
+      expect(wrapper.find('.level-stats').text()).toContain(second.title)
+
+      await chips[0].trigger('click')
+      expect(wrapper.findAll('[data-level-id]')).toHaveLength(3)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('keeps the summary on the whole catalog while a filter is active', async () => {
+    await completeFirstLevel()
+    const { wrapper } = await mountPage()
+    try {
+      await wrapper.findAll('.chip')[2].trigger('click')
+      expect(wrapper.find('.level-stats').text()).toContain('已完成 1/3')
+      expect(wrapper.findAll('[data-level-id]')).toHaveLength(1)
     } finally {
       wrapper.unmount()
     }
@@ -52,6 +84,8 @@ describe('LevelSelectPage', () => {
     await completeFirstLevel()
     const { wrapper } = await mountPage()
     try {
+      expect(wrapper.find('.level-stats').text()).toContain('已完成 1/3')
+      expect(wrapper.find('.level-stats').text()).toContain('星级 3/9')
       const cards = wrapper.findAll('[data-level-id]')
       expect(cards[0].text()).toContain('★★★')
       expect(cards[0].text()).toContain('已完成')
