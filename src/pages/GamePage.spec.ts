@@ -23,6 +23,7 @@ function createCanvasStub() {
       selectedColorId: { type: Number, default: null },
       viewport: { type: Object, default: undefined },
       hintIndex: { type: Number, default: null },
+      autoFit: { type: Boolean, default: false },
     },
     emits: ['paint', 'progress', 'completed', 'viewport-change'],
     template: '<div class="canvas-stub" />',
@@ -102,6 +103,15 @@ function paintAllTargets(canvas: VueWrapper<any>): void {
   }
 }
 
+function paintColor(canvas: VueWrapper<any>, colorId: number): void {
+  const level = canvas.props('level') as Level
+  const readPainted = canvas.props('readPainted') as () => readonly number[]
+  const commitPaint = canvas.props('commitPaint') as (index: number, colorId: number) => string
+  for (const [index, target] of level.cells.entries()) {
+    if (target === colorId && readPainted()[index] === 0) commitPaint(index, colorId)
+  }
+}
+
 describe('GamePage', () => {
   it('redirects unknown or locked levels and enters an unlocked one', async () => {
     const unknown = await mountGame('level-404')
@@ -164,9 +174,51 @@ describe('GamePage', () => {
     const { wrapper, stub } = await mountGame(first.id)
     try {
       const canvas = wrapper.findComponent(stub)
+      expect(canvas.props('autoFit')).toBe(true)
       expect(canvas.props('selectedColorId')).toBe(first.palette[0].id)
       await wrapper.findAll('.color-swatch')[1].trigger('click')
       expect(canvas.props('selectedColorId')).toBe(first.palette[1].id)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('auto-advances the selected color in palette order once a color is exhausted', async () => {
+    const { wrapper, stub } = await mountGame(first.id)
+    try {
+      const canvas = wrapper.findComponent(stub)
+      expect(canvas.props('selectedColorId')).toBe(1)
+      paintColor(canvas, 1)
+      await flushPromises()
+      expect(canvas.props('selectedColorId')).toBe(2)
+
+      await wrapper.findAll('.color-swatch')[2].trigger('click')
+      expect(canvas.props('selectedColorId')).toBe(3)
+      paintColor(canvas, 2)
+      await flushPromises()
+      expect(canvas.props('selectedColorId')).toBe(3)
+
+      paintColor(canvas, 3)
+      await flushPromises()
+      expect(canvas.props('selectedColorId')).toBe(3)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('shows the finished artwork above the dialog actions', async () => {
+    const { wrapper, stub } = await mountGame(first.id)
+    try {
+      const canvas = wrapper.findComponent(stub)
+      paintAllTargets(canvas)
+      canvas.vm.$emit('completed')
+      await flushPromises()
+
+      const dialog = wrapper.find('[role="dialog"]')
+      expect(dialog.findAll('.pixel-preview .preview-cell')).toHaveLength(first.cells.length)
+      expect(hasButton(wrapper, '下一关')).toBe(true)
+      expect(hasButton(wrapper, '再玩一次')).toBe(true)
+      expect(hasButton(wrapper, '返回列表')).toBe(true)
     } finally {
       wrapper.unmount()
     }

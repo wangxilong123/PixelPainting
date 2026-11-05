@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import type { Level } from '../models/level'
+import PixelPreview from './PixelPreview.vue'
 
 const props = defineProps<{
   level: Level
@@ -12,11 +12,6 @@ const props = defineProps<{
 const emit = defineEmits<{ open: [] }>()
 
 const difficultyLabels = ['', '简单', '普通', '进阶']
-
-const preview = computed(() => {
-  const hexes = new Map(props.level.palette.map((color) => [color.id, color.hex]))
-  return props.level.cells.map((id) => (id === 0 ? null : hexes.get(id) ?? null))
-})
 
 function activate(): void {
   if (props.unlocked) emit('open')
@@ -32,21 +27,7 @@ function activate(): void {
     :aria-disabled="unlocked ? undefined : 'true'"
     @click="activate"
   >
-    <span
-      class="level-preview"
-      aria-hidden="true"
-      :style="{
-        gridTemplateColumns: `repeat(${level.width}, 1fr)`,
-        aspectRatio: `${level.width} / ${level.height}`,
-      }"
-    >
-      <span
-        v-for="(hex, index) in preview"
-        :key="index"
-        class="preview-cell"
-        :style="hex ? { background: hex } : undefined"
-      />
-    </span>
+    <PixelPreview class="level-preview" :level="level" />
     <span class="level-title">{{ level.title }}</span>
     <span class="level-meta">
       {{ difficultyLabels[level.difficulty] }} · {{ level.width }}×{{ level.height }}
@@ -80,15 +61,7 @@ function activate(): void {
 }
 
 .level-preview {
-  display: grid;
-  gap: 1px;
   width: 5rem;
-  background: var(--color-border);
-  border: 1px solid var(--color-border);
-}
-
-.preview-cell {
-  background: transparent;
 }
 
 .level-title {

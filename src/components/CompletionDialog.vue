@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { Level } from '../models/level'
+import PixelPreview from './PixelPreview.vue'
 
 const props = defineProps<{
   open: boolean
@@ -8,6 +10,7 @@ const props = defineProps<{
   hintsUsed: number
   accuracy: number
   nextLevelId?: string
+  level?: Level
 }>()
 
 const emit = defineEmits<{ next: []; replay: []; back: [] }>()
@@ -23,6 +26,7 @@ const time = computed(() => {
   <div v-if="open" class="dialog-backdrop">
     <div role="dialog" aria-modal="true" aria-label="关卡结算" class="completion-dialog">
       <h2>关卡完成！</h2>
+      <PixelPreview v-if="level" class="dialog-preview" :level="level" />
       <p class="dialog-stars" aria-label="本次星级">{{ '★'.repeat(stars) }}{{ '☆'.repeat(3 - stars) }}</p>
       <ul class="dialog-stats">
         <li>用时 {{ time }}</li>
@@ -56,6 +60,11 @@ const time = computed(() => {
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   text-align: center;
+}
+
+.dialog-preview {
+  width: min(12rem, 100%);
+  margin: var(--space-4) auto 0;
 }
 
 .dialog-stars {

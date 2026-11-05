@@ -53,6 +53,35 @@ const resultElapsed = computed(() => currentProgress.value?.elapsedSeconds ?? 0)
 const resultHints = computed(() => currentProgress.value?.hintsUsed ?? 0)
 const nextLevelId = computed(() => (dialogOpen.value ? getNextLevelId() : undefined))
 
+const remainingCounts = computed(() => {
+  const counts = new Map<number, number>()
+  const current = level.value
+  const progress = currentProgress.value
+  if (!current || !progress) return counts
+  for (const color of current.palette) counts.set(color.id, 0)
+  for (const [index, target] of current.cells.entries()) {
+    if (target === 0 || progress.painted[index] === target) continue
+    counts.set(target, (counts.get(target) ?? 0) + 1)
+  }
+  return counts
+})
+
+function firstAvailableColor(): number | null {
+  for (const color of level.value?.palette ?? []) {
+    if ((remainingCounts.value.get(color.id) ?? 0) > 0) return color.id
+  }
+  return null
+}
+
+// 当前颜色涂完后按调色板顺序切到下一个仍有剩余格子的颜色
+watch(remainingCounts, () => {
+  if (isCompleted.value) return
+  const selected = selectedColorId.value
+  if (selected !== null && (remainingCounts.value.get(selected) ?? 0) > 0) return
+  const next = firstAvailableColor()
+  if (next !== null) selectedColorId.value = next
+})
+
 function formatTime(seconds: number): string {
   const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
   const ss = String(seconds % 60).padStart(2, '0')
@@ -104,7 +133,7 @@ function enter(id: string): void {
     return
   }
   entered.value = true
-  selectedColorId.value = level.value?.palette[0]?.id ?? null
+  selectedColorId.value = firstAvailableColor()
   paintedCount.value = countPainted()
   startTimer()
 }
@@ -170,6 +199,7 @@ function doRestart(): void {
   redoStack.value = []
   hintIndex.value = null
   paintedCount.value = 0
+  selectedColorId.value = firstAvailableColor()
   canvasRef.value?.resetViewport()
   startTimer()
 }
@@ -238,6 +268,7 @@ function backToList(): void {
       :hints-used="resultHints"
       :accuracy="accuracy"
       :next-level-id="nextLevelId"
+      :level="level"
       @next="goNext"
       @replay="doRestart"
       @back="backToList"
