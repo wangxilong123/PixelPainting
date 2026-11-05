@@ -12,6 +12,7 @@ const props = defineProps<{
   selectedColorId: number | null
   viewport?: LevelViewport
   hintIndex?: number | null
+  autoFit?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -50,6 +51,7 @@ function mountController(): void {
       if (paintedCount === total) emit('completed')
     },
     onViewportChange: (viewport) => emit('viewport-change', viewport),
+    autoFit: props.autoFit,
   })
   available.value = controller.available
   controller.setSelectedColor(props.selectedColorId)

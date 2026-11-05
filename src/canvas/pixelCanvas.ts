@@ -14,6 +14,7 @@ export type PixelCanvasOptions = {
   commitPaint: (index: number, colorId: number) => PaintStatus
   onPaint?: (result: PaintResult) => void
   onViewportChange?: (viewport: LevelViewport) => void
+  autoFit?: boolean
 }
 
 export type PixelCanvasController = {
@@ -32,7 +33,12 @@ export type PixelCanvasController = {
 const cellSize = 24
 const errorDuration = 180
 const touchDragThreshold = 6
+const fitScaleMax = 2
 type Gesture = 'pending' | 'paint' | 'pan' | 'pinch' | 'blocked'
+
+function isDefaultViewport(viewport: LevelViewport): boolean {
+  return viewport.scale === 1 && viewport.offsetX === 0 && viewport.offsetY === 0
+}
 
 function midpoint(first: Point, second: Point): Point {
   return { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 }
@@ -43,7 +49,7 @@ function distance(first: Point, second: Point): number {
 }
 
 export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasController {
-  const { canvas, level, readPainted, commitPaint, onPaint, onViewportChange } = options
+  const { canvas, level, readPainted, commitPaint, onPaint, onViewportChange, autoFit = false } = options
   const context = canvas.getContext('2d')
   const palette = new Map(level.palette.map((color) => [color.id, color.hex]))
   let viewport = createDefaultViewport()
@@ -59,6 +65,33 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
   let gesture: Gesture = 'blocked'
   let touchGesture = false
   let touchOrigin: Point | undefined
+  let userAdjusted = false
+
+  // The fitted viewport is derived from the live canvas size, so it stays centered on resize
+  // until the player pans or zooms, and it is never reported as a saved viewport.
+  function fitViewport(): LevelViewport | null {
+    const { width, height } = canvas.getBoundingClientRect()
+    if (width <= 0 || height <= 0) return null
+    const worldWidth = level.width * cellSize
+    const worldHeight = level.height * cellSize
+    const scale = Math.min(fitScaleMax, Math.max(0.5, Math.min(width / worldWidth, height / worldHeight)))
+    return normalizeViewport({
+      scale,
+      offsetX: (width - worldWidth * scale) / 2,
+      offsetY: (height - worldHeight * scale) / 2,
+    })
+  }
+
+  function activeViewport(): LevelViewport {
+    return (autoFit && !userAdjusted ? fitViewport() : null) ?? viewport
+  }
+
+  function beginUserViewport(): void {
+    if (userAdjusted) return
+    const fit = autoFit ? fitViewport() : null
+    if (fit) viewport = fit
+    userAdjusted = true
+  }
 
   function draw(): void {
     if (!context) return
@@ -70,17 +103,18 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
     if (canvas.width !== backingWidth) canvas.width = backingWidth
     if (canvas.height !== backingHeight) canvas.height = backingHeight
 
+    const view = activeViewport()
     context.setTransform(backingWidth / width, 0, 0, backingHeight / height, 0, 0)
     context.fillStyle = '#11111b'
     context.fillRect(0, 0, width, height)
-    context.translate(viewport.offsetX, viewport.offsetY)
-    context.scale(viewport.scale, viewport.scale)
+    context.translate(view.offsetX, view.offsetY)
+    context.scale(view.scale, view.scale)
     context.font = '12px system-ui, sans-serif'
     context.textAlign = 'center'
     context.textBaseline = 'middle'
 
-    const topLeft = screenToWorld({ x: 0, y: 0 }, viewport)
-    const bottomRight = screenToWorld({ x: width, y: height }, viewport)
+    const topLeft = screenToWorld({ x: 0, y: 0 }, view)
+    const bottomRight = screenToWorld({ x: width, y: height }, view)
     const firstRow = Math.max(0, Math.floor(topLeft.y / cellSize))
     const lastRow = Math.min(level.height, Math.ceil(bottomRight.y / cellSize))
     const firstColumn = Math.max(0, Math.floor(topLeft.x / cellSize))
@@ -98,24 +132,24 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
         const filled = painted[index] === target
         context.fillStyle = filled ? palette.get(target) ?? '#f1f0f8' : '#f1f0f8'
         context.fillRect(x, y, cellSize, cellSize)
-        context.lineWidth = 1 / viewport.scale
+        context.lineWidth = 1 / view.scale
         context.strokeStyle = '#64647d'
         context.strokeRect(x, y, cellSize, cellSize)
         if (filled) continue
 
         context.fillStyle = '#292941'
         context.fillText(String(target), x + cellSize / 2, y + cellSize / 2, cellSize - 6)
-        if (target === selectedColor) highlight(x, y, '#526dca', 1)
-        if (index === hintIndex) highlight(x, y, '#a25e00', 2)
-        if (index === errorIndex) highlight(x, y, '#d12b42', 2)
+        if (target === selectedColor) highlight(x, y, '#526dca', 1, view.scale)
+        if (index === hintIndex) highlight(x, y, '#a25e00', 2, view.scale)
+        if (index === errorIndex) highlight(x, y, '#d12b42', 2, view.scale)
       }
     }
   }
 
-  function highlight(x: number, y: number, color: string, width: number): void {
+  function highlight(x: number, y: number, color: string, width: number, scale: number): void {
     if (!context) return
     context.strokeStyle = color
-    context.lineWidth = width / viewport.scale
+    context.lineWidth = width / scale
     context.strokeRect(x + 2, y + 2, cellSize - 4, cellSize - 4)
   }
 
@@ -173,18 +207,20 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
     if (screenX < 0 || screenY < 0 || screenX >= width || screenY >= height) {
       return { status: 'ignored' }
     }
-    const cell = screenToCell({ x: screenX, y: screenY }, viewport, cellSize, level)
+    const cell = screenToCell({ x: screenX, y: screenY }, activeViewport(), cellSize, level)
     return cell ? paintCell(cell) : { status: 'ignored' }
   }
 
   function zoomAt(screenX: number, screenY: number, delta: number): void {
     if (!Number.isFinite(delta)) return
+    beginUserViewport()
     const exponent = Math.min(20, Math.max(-20, -delta * 0.0015))
     const scale = viewport.scale * Math.exp(exponent)
     updateViewport(zoomAround(viewport, { x: screenX, y: screenY }, scale), true)
   }
 
   function panBy(deltaX: number, deltaY: number): void {
+    beginUserViewport()
     updateViewport(panViewport(viewport, { x: deltaX, y: deltaY }), true)
   }
 
@@ -195,7 +231,7 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
 
   function paintSegment(from: Point, to: Point): void {
     const { width, height } = canvas.getBoundingClientRect()
-    for (const cell of cellsAlongSegment(from, to, viewport, cellSize, level, { width, height })) {
+    for (const cell of cellsAlongSegment(from, to, activeViewport(), cellSize, level, { width, height })) {
       if (destroyed) return
       const index = cell.row * level.width + cell.column
       if (visited.has(index)) continue
@@ -217,7 +253,7 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
     const touch = event.pointerType === 'touch'
     if (pointers.has(event.pointerId)) return
     if (pointers.size > 0 && (!touchGesture || !touch)) return
-    if (!touch && event.button !== 0 && event.button !== 1) return
+    if (!touch && event.button !== 0 && event.button !== 1 && event.button !== 2) return
 
     const point = localPoint(event)
     pointers.set(event.pointerId, point)
@@ -228,7 +264,7 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
       visited.clear()
       touchGesture = touch
       touchOrigin = touch ? point : undefined
-      gesture = touch ? 'pending' : event.button === 1 ? 'pan' : 'paint'
+      gesture = touch ? 'pending' : event.button === 0 ? 'paint' : 'pan'
       if (gesture === 'paint') paintSegment(point, point)
     } else if (pointers.size === 2 && gesture !== 'blocked') {
       gesture = 'pinch'
@@ -257,6 +293,7 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
     } else if (gesture === 'pinch') {
       const other = [...pointers].find(([id]) => id !== event.pointerId)?.[1]
       if (!other) return
+      beginUserViewport()
       const oldCenter = midpoint(previous, other)
       const newCenter = midpoint(point, other)
       const oldDistance = distance(previous, other)
@@ -296,6 +333,10 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
     zoomAt(point.x, point.y, event.deltaY * unit)
   }
 
+  function contextMenu(event: MouseEvent): void {
+    event.preventDefault()
+  }
+
   const pointerListeners = {
     pointerdown: pointerDown,
     pointermove: pointerMove,
@@ -312,6 +353,7 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
       canvas.addEventListener(type, listener as EventListener)
     }
     canvas.addEventListener('wheel', wheel, { passive: false })
+    canvas.addEventListener('contextmenu', contextMenu)
   }
   invalidate()
 
@@ -324,8 +366,15 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
     },
     zoomAt,
     panBy,
-    resetViewport() { updateViewport(createDefaultViewport(), true) },
-    setViewport(next) { updateViewport(normalizeViewport(next), false) },
+    resetViewport() {
+      userAdjusted = false
+      updateViewport(createDefaultViewport(), true)
+    },
+    setViewport(next) {
+      const normalized = normalizeViewport(next)
+      userAdjusted = !isDefaultViewport(normalized)
+      updateViewport(normalized, false)
+    },
     setHint(index) {
       hintIndex = index
       invalidate()
@@ -338,6 +387,7 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
         canvas.removeEventListener(type, listener as EventListener)
       }
       canvas.removeEventListener('wheel', wheel)
+      canvas.removeEventListener('contextmenu', contextMenu)
       for (const id of pointers.keys()) changeCapture(id, false)
       pointers.clear()
       visited.clear()

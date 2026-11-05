@@ -16,7 +16,11 @@ const level: Level = {
   cells: [0, 1, 2, 1, 0, 2],
 }
 
-function setup(initialPainted = [0, 0, 0, 0, 0, 0], commitStatus: PaintStatus = 'painted') {
+function setup(
+  initialPainted = [0, 0, 0, 0, 0, 0],
+  commitStatus: PaintStatus = 'painted',
+  autoFit = false,
+) {
   const canvas = document.createElement('canvas')
   let width = 300
   vi.spyOn(canvas, 'getBoundingClientRect').mockImplementation(
@@ -58,7 +62,7 @@ function setup(initialPainted = [0, 0, 0, 0, 0, 0], commitStatus: PaintStatus = 
   const onPaint = vi.fn()
   const onViewportChange = vi.fn()
   const controller = createPixelCanvas({
-    canvas, level, readPainted: () => painted, commitPaint, onPaint, onViewportChange,
+    canvas, level, readPainted: () => painted, commitPaint, onPaint, onViewportChange, autoFit,
   })
   return {
     canvas, controller, context, fills, painted, commitPaint, onPaint, onViewportChange,
@@ -247,5 +251,69 @@ describe('pixel canvas drawing and hit testing', () => {
     expect(view.cancel).toHaveBeenCalledTimes(1)
     expect(view.disconnect).toHaveBeenCalledTimes(1)
     expect(vi.getTimerCount()).toBe(0)
+  })
+})
+
+describe('pixel canvas auto fit and right-drag pan', () => {
+  it('centers the level and hit-tests through the fitted viewport without saving it', () => {
+    const view = setup([0, 0, 0, 0, 0, 0], 'painted', true)
+    view.draw()
+    expect(view.context.translate).toHaveBeenCalledWith(78, 52)
+    expect(view.context.scale).toHaveBeenCalledWith(2, 2)
+    expect(view.onViewportChange).not.toHaveBeenCalled()
+    view.controller.setSelectedColor(1)
+    expect(view.controller.paintAt(150, 76)).toEqual({ status: 'painted', index: 1, colorId: 1 })
+    expect(view.controller.paintAt(12, 12).status).toBe('ignored')
+    view.controller.destroy()
+  })
+
+  it('re-fits on resize until the first pan adopts the fitted viewport', () => {
+    const view = setup([0, 0, 0, 0, 0, 0], 'painted', true)
+    view.resizeTo(108)
+    view.draw()
+    expect(view.context.translate).toHaveBeenLastCalledWith(0, 64)
+    view.controller.panBy(10, 5)
+    view.draw()
+    expect(view.onViewportChange).toHaveBeenCalledExactlyOnceWith({ scale: 1.5, offsetX: 10, offsetY: 69 })
+    view.resizeTo(300)
+    view.draw()
+    expect(view.context.translate).toHaveBeenLastCalledWith(10, 69)
+    view.controller.destroy()
+  })
+
+  it('honors a saved viewport and returns to the fitted view on reset', () => {
+    const view = setup([0, 0, 0, 0, 0, 0], 'painted', true)
+    view.controller.setViewport({ scale: 2, offsetX: 4, offsetY: 8 })
+    view.draw()
+    expect(view.context.translate).toHaveBeenLastCalledWith(4, 8)
+    expect(view.onViewportChange).not.toHaveBeenCalled()
+    view.controller.resetViewport()
+    view.draw()
+    expect(view.onViewportChange).toHaveBeenCalledExactlyOnceWith({ scale: 1, offsetX: 0, offsetY: 0 })
+    expect(view.context.translate).toHaveBeenLastCalledWith(78, 52)
+    view.controller.panBy(3, 4)
+    view.draw()
+    expect(view.context.translate).toHaveBeenLastCalledWith(81, 56)
+    view.controller.setViewport({ scale: 1, offsetX: 0, offsetY: 0 })
+    view.draw()
+    expect(view.context.translate).toHaveBeenLastCalledWith(78, 52)
+    view.controller.destroy()
+  })
+
+  it('pans with the right button and suppresses the context menu', () => {
+    const view = setup()
+    pointer(view.canvas, 'pointerdown', 12, 12, { button: 2 })
+    pointer(view.canvas, 'pointermove', 30, 20)
+    pointer(view.canvas, 'pointerup', 30, 20, { button: 2 })
+    view.draw()
+    expect(view.onViewportChange).toHaveBeenCalledExactlyOnceWith({ scale: 1, offsetX: 18, offsetY: 8 })
+    expect(view.commitPaint).not.toHaveBeenCalled()
+    const menu = new MouseEvent('contextmenu', { cancelable: true })
+    view.canvas.dispatchEvent(menu)
+    expect(menu.defaultPrevented).toBe(true)
+    view.controller.destroy()
+    const detached = new MouseEvent('contextmenu', { cancelable: true })
+    view.canvas.dispatchEvent(detached)
+    expect(detached.defaultPrevented).toBe(false)
   })
 })

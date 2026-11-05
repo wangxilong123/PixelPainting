@@ -204,6 +204,7 @@ function backToList(): void {
       :selected-color-id="selectedColorId"
       :viewport="currentProgress.viewport"
       :hint-index="hintIndex"
+      :auto-fit="true"
       @paint="onPaint"
       @progress="onProgress"
       @completed="onCompleted"
