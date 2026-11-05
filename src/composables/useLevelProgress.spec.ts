@@ -25,6 +25,10 @@ function finishLevel(progress: Session, level: Level): void {
   }
 }
 
+function paintedCount(progress: Session): number {
+  return progress.currentProgress.value?.painted.filter((color) => color !== 0).length ?? 0
+}
+
 describe('useLevelProgress', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -63,13 +67,13 @@ describe('useLevelProgress', () => {
     expect(progress.paintCell(index + 0.5, color)).toBe('ignored')
     expect(progress.paintCell(index, 99)).toBe('incorrect')
     expect(progress.currentProgress.value).toBe(before)
-    expect(progress.accuracy.value).toBe(0)
+    expect(paintedCount(progress)).toBe(0)
 
     expect(progress.paintCell(index, color)).toBe('painted')
     expect(progress.currentProgress.value?.painted[index]).toBe(color)
-    expect(progress.accuracy.value).toBe(1 / 38)
+    expect(paintedCount(progress)).toBe(1)
     expect(progress.paintCell(index, color)).toBe('ignored')
-    expect(progress.accuracy.value).toBe(1 / 38)
+    expect(paintedCount(progress)).toBe(1)
   })
 
   it('returns a hint without filling a cell and stops offering hints after completion', async () => {
@@ -209,7 +213,7 @@ describe('useLevelProgress', () => {
     const [index, color] = firstTarget(first)
     const otherIndex = first.cells.findIndex((c, i) => c !== 0 && i !== index)
     progress.paintCell(index, color)
-    expect(progress.accuracy.value).toBe(1 / 38)
+    expect(paintedCount(progress)).toBe(1)
 
     expect(progress.revertCell(-1)).toBe(false)
     expect(progress.revertCell(first.cells.length)).toBe(false)
@@ -220,9 +224,9 @@ describe('useLevelProgress', () => {
 
     expect(progress.revertCell(index)).toBe(true)
     expect(progress.currentProgress.value?.painted[index]).toBe(0)
-    expect(progress.accuracy.value).toBe(0)
+    expect(paintedCount(progress)).toBe(0)
     expect(progress.paintCell(index, color)).toBe('painted')
-    expect(progress.accuracy.value).toBe(1 / 38)
+    expect(paintedCount(progress)).toBe(1)
 
     finishLevel(progress, first)
     expect(progress.revertCell(index)).toBe(false)
@@ -287,7 +291,7 @@ describe('useLevelProgress', () => {
     firstSession.paintCell(...firstTarget(first))
     secondSession.setElapsedSeconds(19)
     expect(firstSession.currentProgress.value?.elapsedSeconds).toBe(19)
-    expect(secondSession.accuracy.value).toBe(1 / 38)
+    expect(paintedCount(secondSession)).toBe(1)
     const { loadProgress } = await import('../services/progressService')
     expect(loadProgress()[first.id]).toEqual(firstSession.currentProgress.value)
   })

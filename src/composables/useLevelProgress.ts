@@ -3,8 +3,8 @@ import type { Level, LevelProgress, LevelResult, LevelViewport } from '../models
 import { getLevelById, getLevels } from '../services/levelService'
 import {
   createEmptyProgress,
-  getLevelAccuracy,
   getStars,
+  isLevelComplete,
   isLevelUnlocked,
   isLevelViewport,
   loadProgressSnapshot,
@@ -45,14 +45,9 @@ export function useLevelProgress() {
   })
   const currentProgress = computed(() => attempt.value && readonly(attempt.value))
   const levelRecords = computed<Record<string, LevelProgress>>(() => ({ ...state.value.levels }))
-  const accuracy = computed(() => {
-    const level = currentLevel.value
-    const progress = attempt.value
-    return level && progress ? getLevelAccuracy(level, progress) : 0
-  })
 
   function settleIfComplete(level: Level, progress: LevelProgress): void {
-    if (getLevelAccuracy(level, progress) !== 1) return
+    if (!isLevelComplete(level, progress)) return
 
     const result: LevelResult = {
       completedAt: new Date().toISOString(),
@@ -201,7 +196,6 @@ export function useLevelProgress() {
     currentLevelId,
     currentProgress,
     levelRecords,
-    accuracy,
     openLevel,
     paintCell,
     revertCell,

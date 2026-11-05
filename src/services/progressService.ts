@@ -1,6 +1,6 @@
 import { useLocalStorage } from '../composables/useLocalStorage'
 import type { Level, LevelProgress, LevelResult, LevelViewport } from '../models/level'
-import { getInteractiveCellCount, getLevelById } from './levelService'
+import { getLevelById } from './levelService'
 
 export type ProgressSnapshot = {
   currentLevelId: string | null
@@ -49,19 +49,18 @@ export function createEmptyProgress(level: Level): LevelProgress {
   }
 }
 
-export function getLevelAccuracy(level: Level, progress: LevelProgress): number {
-  const total = getInteractiveCellCount(level)
-  if (total === 0) return 0
-
-  let correct = 0
+export function isLevelComplete(level: Level, progress: LevelProgress): boolean {
+  let total = 0
   for (const [index, colorId] of level.cells.entries()) {
-    if (colorId !== 0 && progress.painted[index] === colorId) correct += 1
+    if (colorId === 0) continue
+    total += 1
+    if (progress.painted[index] !== colorId) return false
   }
-  return correct / total
+  return total > 0
 }
 
 export function getStars(level: Level, progress: LevelProgress): 1 | 2 | 3 {
-  if (getLevelAccuracy(level, progress) !== 1) return 1
+  if (!isLevelComplete(level, progress)) return 1
   if (progress.hintsUsed === 0) return 3
   return progress.hintsUsed <= 2 ? 2 : 1
 }
@@ -79,7 +78,7 @@ export function isLevelUnlocked(
     if (attempt?.levelId !== level.id) return false
 
     if (isLevelResult(attempt.bestResult)) return true
-    return isTimestamp(attempt.completedAt) && getLevelAccuracy(level, attempt) === 1
+    return isTimestamp(attempt.completedAt) && isLevelComplete(level, attempt)
   })
 }
 
@@ -97,7 +96,7 @@ function parseLevelProgress(level: Level, value: unknown): LevelProgress | undef
   if (bestResult !== undefined && !isLevelResult(bestResult)) return
 
   const progress: LevelProgress = { levelId: level.id, painted, elapsedSeconds, hintsUsed }
-  const isComplete = getLevelAccuracy(level, progress) === 1
+  const isComplete = isLevelComplete(level, progress)
   if (isComplete !== (completedAt !== undefined) || (!isComplete && stars !== undefined)) return
 
   if (startedAt !== undefined) progress.startedAt = startedAt

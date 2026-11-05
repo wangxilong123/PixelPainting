@@ -12,7 +12,6 @@ const route = useRoute()
 const router = useRouter()
 const {
   currentProgress,
-  accuracy,
   openLevel,
   paintCell,
   revertCell,
@@ -266,7 +265,6 @@ function backToList(): void {
       :stars="resultStars"
       :elapsed-seconds="resultElapsed"
       :hints-used="resultHints"
-      :accuracy="accuracy"
       :next-level-id="nextLevelId"
       :level="level"
       @next="goNext"

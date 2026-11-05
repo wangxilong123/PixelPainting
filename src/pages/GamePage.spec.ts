@@ -234,7 +234,7 @@ describe('GamePage', () => {
       const painted = canvas.props('readPainted') as () => readonly number[]
       expect(painted()[index]).toBe(0)
       const session = await progressSession()
-      expect(session.accuracy.value).toBe(0)
+      expect(session.currentProgress.value?.painted.filter((color) => color !== 0)).toHaveLength(0)
 
       canvas.vm.$emit('progress', { paintedCount: 5, total: 38 })
       await flushPromises()
@@ -301,7 +301,7 @@ describe('GamePage', () => {
       expect(dialogs).toHaveLength(1)
       expect(dialogs[0].text()).toContain('★★★')
       expect(dialogs[0].text()).toContain('用时 00:19')
-      expect(dialogs[0].text()).toContain('正确率 100%')
+      expect(dialogs[0].text()).not.toContain('正确率')
       expect(dialogs[0].text()).toContain('提示 0 次')
 
       const session = await progressSession()

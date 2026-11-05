@@ -8,7 +8,6 @@ const props = defineProps<{
   stars: 1 | 2 | 3
   elapsedSeconds: number
   hintsUsed: number
-  accuracy: number
   nextLevelId?: string
   level?: Level
 }>()
@@ -30,7 +29,6 @@ const time = computed(() => {
       <p class="dialog-stars" aria-label="本次星级">{{ '★'.repeat(stars) }}{{ '☆'.repeat(3 - stars) }}</p>
       <ul class="dialog-stats">
         <li>用时 {{ time }}</li>
-        <li>正确率 {{ Math.round(accuracy * 100) }}%</li>
         <li>提示 {{ hintsUsed }} 次</li>
       </ul>
       <div class="dialog-actions">

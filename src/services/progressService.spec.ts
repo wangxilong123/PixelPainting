@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Level, LevelProgress } from '../models/level'
 import { getLevels } from './levelService'
-import { createEmptyProgress, getLevelAccuracy, getStars, isLevelUnlocked } from './progressService'
+import { createEmptyProgress, getStars, isLevelComplete, isLevelUnlocked } from './progressService'
 
 const sample: Level = {
   id: 'test-level',
@@ -36,11 +36,11 @@ describe('progress rules', () => {
     expect(createEmptyProgress(sample).painted).not.toBe(progress.painted)
   })
 
-  it('only counts correct nonempty cells and handles a zero denominator', () => {
+  it('completes only when every interactive cell is painted', () => {
     const partial = { ...createEmptyProgress(sample), painted: [1, 1, 1, 0, 2, 2] }
-    expect(getLevelAccuracy(sample, partial)).toBe(0.5)
-    expect(getLevelAccuracy(sample, completedProgress(sample))).toBe(1)
-    expect(getLevelAccuracy({ ...sample, cells: Array(6).fill(0) }, partial)).toBe(0)
+    expect(isLevelComplete(sample, partial)).toBe(false)
+    expect(isLevelComplete(sample, completedProgress(sample))).toBe(true)
+    expect(isLevelComplete({ ...sample, cells: Array(6).fill(0) }, partial)).toBe(false)
   })
 
   it.each([[0, 3], [1, 2], [2, 2], [3, 1]])(
