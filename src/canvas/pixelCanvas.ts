@@ -34,7 +34,14 @@ const cellSize = 24
 const errorDuration = 180
 const touchDragThreshold = 6
 const fitScaleMax = 2
+const singleDigitFont = 12
+const doubleDigitFont = 9
+const minLabelPixels = 6
 type Gesture = 'pending' | 'paint' | 'pan' | 'pinch' | 'blocked'
+
+function labelFont(target: number): number {
+  return target >= 10 ? doubleDigitFont : singleDigitFont
+}
 
 function isDefaultViewport(viewport: LevelViewport): boolean {
   return viewport.scale === 1 && viewport.offsetX === 0 && viewport.offsetY === 0
@@ -109,7 +116,6 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
     context.fillRect(0, 0, width, height)
     context.translate(view.offsetX, view.offsetY)
     context.scale(view.scale, view.scale)
-    context.font = '12px system-ui, sans-serif'
     context.textAlign = 'center'
     context.textBaseline = 'middle'
 
@@ -137,8 +143,13 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
         context.strokeRect(x, y, cellSize, cellSize)
         if (filled) continue
 
-        context.fillStyle = '#292941'
-        context.fillText(String(target), x + cellSize / 2, y + cellSize / 2, cellSize - 6)
+        // 两位数用更小字号，缩得太小时直接不画，避免糊成一片
+        const fontPx = labelFont(target)
+        if (view.scale * fontPx >= minLabelPixels) {
+          context.fillStyle = '#292941'
+          context.font = `${fontPx}px system-ui, sans-serif`
+          context.fillText(String(target), x + cellSize / 2, y + cellSize / 2, cellSize - 4)
+        }
         if (target === selectedColor) highlight(x, y, '#526dca', 1, view.scale)
         if (index === hintIndex) highlight(x, y, '#a25e00', 2, view.scale)
         if (index === errorIndex) highlight(x, y, '#d12b42', 2, view.scale)

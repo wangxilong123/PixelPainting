@@ -20,6 +20,7 @@ function setup(
   initialPainted = [0, 0, 0, 0, 0, 0],
   commitStatus: PaintStatus = 'painted',
   autoFit = false,
+  boardLevel: Level = level,
 ) {
   const canvas = document.createElement('canvas')
   let width = 300
@@ -32,10 +33,12 @@ function setup(
   canvas.releasePointerCapture = release
   const context = {
     setTransform: vi.fn(), translate: vi.fn(), scale: vi.fn(), fillRect: vi.fn(),
-    strokeRect: vi.fn(), fillText: vi.fn(), fillStyle: '',
+    strokeRect: vi.fn(), fillText: vi.fn(), fillStyle: '', font: '',
   }
   const fills: string[] = []
+  const fonts: string[] = []
   context.fillRect.mockImplementation(() => fills.push(context.fillStyle))
+  context.fillText.mockImplementation(() => fonts.push(context.font))
   vi.spyOn(canvas, 'getContext').mockReturnValue(context as unknown as CanvasRenderingContext2D)
   const disconnect = vi.fn()
   let resize = () => {}
@@ -62,10 +65,10 @@ function setup(
   const onPaint = vi.fn()
   const onViewportChange = vi.fn()
   const controller = createPixelCanvas({
-    canvas, level, readPainted: () => painted, commitPaint, onPaint, onViewportChange, autoFit,
+    canvas, level: boardLevel, readPainted: () => painted, commitPaint, onPaint, onViewportChange, autoFit,
   })
   return {
-    canvas, controller, context, fills, painted, commitPaint, onPaint, onViewportChange,
+    canvas, controller, context, fills, fonts, painted, commitPaint, onPaint, onViewportChange,
     request, cancel, disconnect, capture, release,
     resizeTo(newWidth: number) { width = newWidth; resize() },
     draw() {
@@ -210,6 +213,33 @@ describe('pixel canvas drawing and hit testing', () => {
     view.context.strokeRect.mockClear()
     view.draw()
     expect(view.context.strokeRect).toHaveBeenCalledTimes(6)
+    view.controller.destroy()
+  })
+
+  it('shrinks two-digit numbers and drops them below the legible zoom', () => {
+    const wide: Level = {
+      ...level,
+      palette: [
+        { id: 3, hex: '#AABBCC', name: '蓝灰' },
+        { id: 12, hex: '#FFEEDD', name: '米色' },
+      ],
+      cells: [0, 3, 12, 3, 0, 12],
+    }
+    const view = setup([0, 0, 0, 0, 0, 0], 'painted', false, wide)
+    view.draw()
+    expect(view.context.fillText.mock.calls.map(([text, , , maxWidth]) => [text, maxWidth]))
+      .toEqual([['3', 20], ['12', 20], ['3', 20], ['12', 20]])
+    expect(view.fonts).toEqual([
+      '12px system-ui, sans-serif',
+      '9px system-ui, sans-serif',
+      '12px system-ui, sans-serif',
+      '9px system-ui, sans-serif',
+    ])
+
+    view.context.fillText.mockClear()
+    view.controller.setViewport({ scale: 0.5, offsetX: 0, offsetY: 0 })
+    view.draw()
+    expect(view.context.fillText.mock.calls.map(([text]) => text)).toEqual(['3', '3'])
     view.controller.destroy()
   })
 
