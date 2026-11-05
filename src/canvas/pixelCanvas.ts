@@ -1,5 +1,5 @@
 import type { Level, LevelViewport } from '../models/level'
-import { screenToCell, screenToWorld, type Cell } from '../utils/coordinates'
+import { cellsAlongSegment, screenToCell, screenToWorld, type Cell, type Point } from '../utils/coordinates'
 import { createDefaultViewport, normalizeViewport, panViewport, zoomAround } from './viewport'
 
 export type PaintStatus = 'painted' | 'incorrect' | 'ignored'
@@ -31,6 +31,16 @@ export type PixelCanvasController = {
 
 const cellSize = 24
 const errorDuration = 180
+const touchDragThreshold = 6
+type Gesture = 'pending' | 'paint' | 'pan' | 'pinch' | 'blocked'
+
+function midpoint(first: Point, second: Point): Point {
+  return { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 }
+}
+
+function distance(first: Point, second: Point): number {
+  return Math.hypot(second.x - first.x, second.y - first.y)
+}
 
 export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasController {
   const { canvas, level, readPainted, commitPaint, onPaint, onViewportChange } = options
@@ -44,6 +54,11 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
   let frame: number | undefined
   let viewportChanged = false
   let destroyed = false
+  const pointers = new Map<number, Point>()
+  const visited = new Set<number>()
+  let gesture: Gesture = 'blocked'
+  let touchGesture = false
+  let touchOrigin: Point | undefined
 
   function draw(): void {
     if (!context) return
@@ -154,6 +169,10 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
 
   function paintAt(screenX: number, screenY: number): PaintResult {
     if (destroyed || !context) return { status: 'ignored' }
+    const { width, height } = canvas.getBoundingClientRect()
+    if (screenX < 0 || screenY < 0 || screenX >= width || screenY >= height) {
+      return { status: 'ignored' }
+    }
     const cell = screenToCell({ x: screenX, y: screenY }, viewport, cellSize, level)
     return cell ? paintCell(cell) : { status: 'ignored' }
   }
@@ -169,10 +188,131 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
     updateViewport(panViewport(viewport, { x: deltaX, y: deltaY }), true)
   }
 
+  function localPoint(event: MouseEvent): Point {
+    const bounds = canvas.getBoundingClientRect()
+    return { x: event.clientX - bounds.left, y: event.clientY - bounds.top }
+  }
+
+  function paintSegment(from: Point, to: Point): void {
+    const { width, height } = canvas.getBoundingClientRect()
+    for (const cell of cellsAlongSegment(from, to, viewport, cellSize, level, { width, height })) {
+      if (destroyed) return
+      const index = cell.row * level.width + cell.column
+      if (visited.has(index)) continue
+      visited.add(index)
+      paintCell(cell)
+    }
+  }
+
+  function changeCapture(id: number, capture: boolean): void {
+    try {
+      if (capture) canvas.setPointerCapture?.(id)
+      else canvas.releasePointerCapture?.(id)
+    } catch {
+      // The pointer can end or lose capture before the browser receives the request.
+    }
+  }
+
+  function pointerDown(event: PointerEvent): void {
+    const touch = event.pointerType === 'touch'
+    if (pointers.has(event.pointerId)) return
+    if (pointers.size > 0 && (!touchGesture || !touch)) return
+    if (!touch && event.button !== 0 && event.button !== 1) return
+
+    const point = localPoint(event)
+    pointers.set(event.pointerId, point)
+    changeCapture(event.pointerId, true)
+    event.preventDefault()
+
+    if (pointers.size === 1) {
+      visited.clear()
+      touchGesture = touch
+      touchOrigin = touch ? point : undefined
+      gesture = touch ? 'pending' : event.button === 1 ? 'pan' : 'paint'
+      if (gesture === 'paint') paintSegment(point, point)
+    } else if (pointers.size === 2 && gesture !== 'blocked') {
+      gesture = 'pinch'
+    } else {
+      gesture = 'blocked'
+    }
+  }
+
+  function pointerMove(event: PointerEvent): void {
+    const previous = pointers.get(event.pointerId)
+    if (!previous) return
+
+    const point = localPoint(event)
+    pointers.set(event.pointerId, point)
+    let from = previous
+    if (gesture === 'pending') {
+      from = touchOrigin ?? previous
+      if (distance(from, point) < touchDragThreshold) return
+      gesture = 'paint'
+    }
+
+    if (gesture === 'paint') {
+      if (point.x !== from.x || point.y !== from.y) paintSegment(from, point)
+    } else if (gesture === 'pan') {
+      panBy(point.x - previous.x, point.y - previous.y)
+    } else if (gesture === 'pinch') {
+      const other = [...pointers].find(([id]) => id !== event.pointerId)?.[1]
+      if (!other) return
+      const oldCenter = midpoint(previous, other)
+      const newCenter = midpoint(point, other)
+      const oldDistance = distance(previous, other)
+      const newDistance = distance(point, other)
+      const zoomed = oldDistance > 0 && newDistance > 0
+        ? zoomAround(viewport, oldCenter, viewport.scale * newDistance / oldDistance)
+        : viewport
+      updateViewport(panViewport(zoomed, {
+        x: newCenter.x - oldCenter.x,
+        y: newCenter.y - oldCenter.y,
+      }), true)
+    }
+  }
+
+  function endPointer(event: PointerEvent): void {
+    if (!pointers.has(event.pointerId)) return
+    if (event.type === 'pointerup') {
+      if (gesture === 'pending' || gesture === 'paint' || gesture === 'pan') pointerMove(event)
+      if (gesture === 'pending') {
+        const point = localPoint(event)
+        paintSegment(point, point)
+      }
+    }
+    pointers.delete(event.pointerId)
+    gesture = 'blocked'
+    touchOrigin = undefined
+    if (pointers.size === 0) visited.clear()
+    if (event.type !== 'lostpointercapture') changeCapture(event.pointerId, false)
+  }
+
+  function wheel(event: WheelEvent): void {
+    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2
+      ? canvas.getBoundingClientRect().height : 1
+    if (!Number.isFinite(event.deltaY) || event.deltaY === 0) return
+    event.preventDefault()
+    const point = localPoint(event)
+    zoomAt(point.x, point.y, event.deltaY * unit)
+  }
+
+  const pointerListeners = {
+    pointerdown: pointerDown,
+    pointermove: pointerMove,
+    pointerup: endPointer,
+    pointercancel: endPointer,
+    lostpointercapture: endPointer,
+  }
   const observer = context && typeof ResizeObserver !== 'undefined'
     ? new ResizeObserver(invalidate) : undefined
   observer?.observe(canvas)
-  if (context) window.addEventListener('resize', invalidate)
+  if (context) {
+    window.addEventListener('resize', invalidate)
+    for (const [type, listener] of Object.entries(pointerListeners)) {
+      canvas.addEventListener(type, listener as EventListener)
+    }
+    canvas.addEventListener('wheel', wheel, { passive: false })
+  }
   invalidate()
 
   return {
@@ -194,6 +334,13 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
     destroy() {
       if (destroyed) return
       destroyed = true
+      for (const [type, listener] of Object.entries(pointerListeners)) {
+        canvas.removeEventListener(type, listener as EventListener)
+      }
+      canvas.removeEventListener('wheel', wheel)
+      for (const id of pointers.keys()) changeCapture(id, false)
+      pointers.clear()
+      visited.clear()
       observer?.disconnect()
       window.removeEventListener('resize', invalidate)
       if (frame !== undefined) cancelAnimationFrame(frame)

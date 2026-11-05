@@ -22,6 +22,10 @@ function setup(initialPainted = [0, 0, 0, 0, 0, 0], commitStatus: PaintStatus = 
   vi.spyOn(canvas, 'getBoundingClientRect').mockImplementation(
     () => new DOMRect(10, 20, width, 200),
   )
+  const capture = vi.fn()
+  const release = vi.fn()
+  canvas.setPointerCapture = capture
+  canvas.releasePointerCapture = release
   const context = {
     setTransform: vi.fn(), translate: vi.fn(), scale: vi.fn(), fillRect: vi.fn(),
     strokeRect: vi.fn(), fillText: vi.fn(), fillStyle: '',
@@ -58,7 +62,7 @@ function setup(initialPainted = [0, 0, 0, 0, 0, 0], commitStatus: PaintStatus = 
   })
   return {
     canvas, controller, context, fills, painted, commitPaint, onPaint, onViewportChange,
-    request, cancel, disconnect,
+    request, cancel, disconnect, capture, release,
     resizeTo(newWidth: number) { width = newWidth; resize() },
     draw() {
       const scheduled = [...frames.values()]
@@ -73,6 +77,100 @@ afterEach(() => {
   vi.useRealTimers()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+})
+
+function pointer(canvas: HTMLCanvasElement, type: string, x: number, y: number, options = {}) {
+  canvas.dispatchEvent(new PointerEvent(type, {
+    pointerId: 1, pointerType: 'mouse', clientX: x + 10, clientY: y + 20, ...options,
+  }))
+}
+
+describe('pixel canvas gestures', () => {
+  it('clips captured paint to the visible canvas before hitting board cells', () => {
+    const view = setup()
+    view.resizeTo(48)
+    view.controller.setSelectedColor(1)
+    pointer(view.canvas, 'pointerdown', 36, 12)
+    pointer(view.canvas, 'pointermove', 70, 12)
+    pointer(view.canvas, 'pointerup', 70, 12)
+    expect(view.onPaint).toHaveBeenCalledExactlyOnceWith({ status: 'painted', index: 1, colorId: 1 })
+    expect(view.controller.paintAt(60, 12).status).toBe('ignored')
+    view.controller.destroy()
+  })
+
+  it('traverses skipped cells and deduplicates even wrong colors until the next drag', () => {
+    const view = setup()
+    view.controller.setSelectedColor(1)
+    pointer(view.canvas, 'pointerdown', 12, 12)
+    pointer(view.canvas, 'pointermove', 70, 12)
+    pointer(view.canvas, 'pointermove', 12, 12)
+    pointer(view.canvas, 'pointerup', 12, 12)
+    expect(view.capture).toHaveBeenCalledWith(1)
+    expect(view.release).toHaveBeenCalledWith(1)
+    expect(view.onPaint.mock.calls.map(([result]) => [result.index, result.status]))
+      .toEqual([[1, 'painted'], [2, 'incorrect']])
+    pointer(view.canvas, 'pointerdown', 60, 12)
+    pointer(view.canvas, 'pointerup', 60, 12)
+    expect(view.onPaint).toHaveBeenCalledTimes(3)
+    view.controller.destroy()
+  })
+
+  it('uses pinch distance and midpoint, then waits for both touches to end', () => {
+    const view = setup()
+    const first = { pointerType: 'touch', pointerId: 1 }
+    const second = { pointerType: 'touch', pointerId: 2 }
+    view.controller.setSelectedColor(1)
+    pointer(view.canvas, 'pointerdown', 36, 12, first)
+    pointer(view.canvas, 'pointerdown', 60, 12, second)
+    pointer(view.canvas, 'pointermove', 84, 12, second)
+    view.draw()
+    expect(view.onViewportChange).toHaveBeenCalledExactlyOnceWith({ scale: 2, offsetX: -36, offsetY: -12 })
+    pointer(view.canvas, 'pointerup', 84, 12, second)
+    pointer(view.canvas, 'pointermove', 48, 12, first)
+    pointer(view.canvas, 'pointerup', 48, 12, first)
+    expect(view.commitPaint).not.toHaveBeenCalled()
+    view.controller.resetViewport()
+    pointer(view.canvas, 'pointerdown', 36, 12, first)
+    expect(view.commitPaint).not.toHaveBeenCalled()
+    pointer(view.canvas, 'pointerup', 36, 12, first)
+    expect(view.commitPaint).toHaveBeenCalledExactlyOnceWith(1, 1)
+    view.controller.destroy()
+  })
+
+  it.each(['pointercancel', 'lostpointercapture'])('clears pending touch on %s', (type) => {
+    const view = setup()
+    const touch = { pointerType: 'touch' }
+    view.controller.setSelectedColor(1)
+    pointer(view.canvas, 'pointerdown', 36, 12, touch)
+    pointer(view.canvas, type, 36, 12, touch)
+    pointer(view.canvas, 'pointerup', 36, 12, touch)
+    expect(view.commitPaint).not.toHaveBeenCalled()
+    pointer(view.canvas, 'pointerdown', 36, 12, touch)
+    pointer(view.canvas, 'pointermove', 60, 12, touch)
+    expect(view.commitPaint).toHaveBeenCalledExactlyOnceWith(1, 1)
+    view.controller.destroy()
+  })
+
+  it('pans with the middle button and uses wheel zoom around a local anchor', () => {
+    const view = setup()
+    pointer(view.canvas, 'pointerdown', 12, 12, { button: 1 })
+    pointer(view.canvas, 'pointermove', 20, 18)
+    pointer(view.canvas, 'pointerup', 20, 18, { button: 1 })
+    view.draw()
+    expect(view.onViewportChange).toHaveBeenLastCalledWith({ scale: 1, offsetX: 8, offsetY: 6 })
+    const wheel = new WheelEvent('wheel', {
+      clientX: 46, clientY: 32, deltaY: -Math.log(2) / 0.0015, cancelable: true,
+    })
+    view.canvas.dispatchEvent(wheel)
+    view.draw()
+    expect(wheel.defaultPrevented).toBe(true)
+    expect(view.onViewportChange).toHaveBeenLastCalledWith({ scale: 2, offsetX: -20, offsetY: 0 })
+    expect(view.commitPaint).not.toHaveBeenCalled()
+    view.controller.destroy()
+    const detached = new WheelEvent('wheel', { deltaY: -100, cancelable: true })
+    view.canvas.dispatchEvent(detached)
+    expect(detached.defaultPrevented).toBe(false)
+  })
 })
 
 describe('pixel canvas drawing and hit testing', () => {

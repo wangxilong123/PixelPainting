@@ -39,4 +39,13 @@ describe('canvas coordinates', () => {
       .toEqual([{ row: 0, column: 0 }, { row: 1, column: 1 }])
     expect(cellsAlongSegment({ x: 12, y: 48 }, { x: 36, y: 48 }, origin, 24, grid)).toEqual([])
   })
+
+  it('does not add a corner-only cell when a drag is sampled exactly at the corner', () => {
+    const grid = { width: 2, height: 2 }
+    const corner = { x: 24, y: 24 }
+    const first = cellsAlongSegment({ x: 12, y: 36 }, corner, origin, 24, grid)
+    const second = cellsAlongSegment(corner, { x: 36, y: 12 }, origin, 24, grid)
+    expect([...first, ...second]).toEqual([{ row: 1, column: 0 }, { row: 0, column: 1 }])
+    expect(cellsAlongSegment(corner, corner, origin, 24, grid)).toEqual([{ row: 1, column: 1 }])
+  })
 })

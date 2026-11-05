@@ -54,6 +54,7 @@ export function cellsAlongSegment(
   viewport: LevelViewport,
   cellSize: number,
   grid: GridSize,
+  screenBounds?: GridSize,
 ): Cell[] {
   if (!hasValidScale(viewport, cellSize) || grid.width < 1 || grid.height < 1) return []
   const start = screenToWorld(from, viewport)
@@ -66,9 +67,17 @@ export function cellsAlongSegment(
   const yRange = clipAxis(start.y, dy, grid.height * cellSize)
   if (!xRange || !yRange) return []
 
-  const enter = Math.max(0, xRange[0], yRange[0])
-  const exit = Math.min(1, xRange[1], yRange[1])
+  const screenX = screenBounds ? clipAxis(from.x, to.x - from.x, screenBounds.width) : [0, 1]
+  const screenY = screenBounds ? clipAxis(from.y, to.y - from.y, screenBounds.height) : [0, 1]
+  if (!screenX || !screenY) return []
+
+  const enter = Math.max(0, xRange[0], yRange[0], screenX[0], screenY[0])
+  const exit = Math.min(1, xRange[1], yRange[1], screenX[1], screenY[1])
   if (enter > exit) return []
+  if (dx === 0 && dy === 0) {
+    const cell = worldToCell(start, cellSize, grid)
+    return cell ? [cell] : []
+  }
 
   const crossings = [enter, exit]
   function addCrossings(origin: number, delta: number, size: number): void {
@@ -93,7 +102,6 @@ export function cellsAlongSegment(
     if (cell && (cell.row !== last?.row || cell.column !== last?.column)) cells.push(cell)
   }
 
-  append(start)
   // Only sample the interior between crossings so corner contacts do not paint adjacent cells.
   for (let index = 1; index < crossings.length; index += 1) {
     const previous = crossings[index - 1]
@@ -102,6 +110,5 @@ export function cellsAlongSegment(
     const middle = (previous + current) / 2
     append({ x: start.x + dx * middle, y: start.y + dy * middle })
   }
-  append(end)
   return cells
 }

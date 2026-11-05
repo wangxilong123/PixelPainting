@@ -1,0 +1,91 @@
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { createPixelCanvas, type PaintResult, type PaintStatus, type PixelCanvasController } from '../canvas/pixelCanvas'
+import { createDefaultViewport } from '../canvas/viewport'
+import type { Level, LevelViewport } from '../models/level'
+import { getInteractiveCellCount } from '../services/levelService'
+
+const props = defineProps<{
+  level: Level
+  readPainted: () => readonly number[]
+  commitPaint: (index: number, colorId: number) => PaintStatus
+  selectedColorId: number | null
+  viewport?: LevelViewport
+  hintIndex?: number | null
+}>()
+
+const emit = defineEmits<{
+  paint: [result: PaintResult]
+  progress: [progress: { paintedCount: number; total: number }]
+  completed: []
+  'viewport-change': [viewport: LevelViewport]
+}>()
+
+const element = ref<HTMLCanvasElement | null>(null)
+const available = ref(true)
+let controller: PixelCanvasController | undefined
+
+function mountController(): void {
+  const canvas = element.value
+  if (!canvas) return
+
+  controller?.destroy()
+  const level = props.level
+  const total = getInteractiveCellCount(level)
+  controller = createPixelCanvas({
+    canvas,
+    level,
+    readPainted: () => props.readPainted(),
+    commitPaint: (index, colorId) => props.commitPaint(index, colorId),
+    onPaint(result) {
+      emit('paint', result)
+      if (result.status !== 'painted') return
+
+      const painted = props.readPainted()
+      let paintedCount = 0
+      for (const [index, color] of level.cells.entries()) {
+        if (color !== 0 && painted[index] === color) paintedCount += 1
+      }
+      emit('progress', { paintedCount, total })
+      if (paintedCount === total) emit('completed')
+    },
+    onViewportChange: (viewport) => emit('viewport-change', viewport),
+  })
+  available.value = controller.available
+  controller.setSelectedColor(props.selectedColorId)
+  controller.setHint(props.hintIndex ?? null)
+  controller.setViewport(props.viewport ?? createDefaultViewport())
+}
+
+onMounted(mountController)
+onBeforeUnmount(() => controller?.destroy())
+watch(() => props.level, mountController)
+watch(() => props.selectedColorId, (color) => controller?.setSelectedColor(color))
+watch(() => props.hintIndex, (index) => controller?.setHint(index ?? null))
+watch(() => props.viewport, (viewport) => controller?.setViewport(viewport ?? createDefaultViewport()))
+watch(() => props.readPainted(), () => controller?.invalidate())
+
+defineExpose({
+  zoomAt: (x: number, y: number, delta: number) => controller?.zoomAt(x, y, delta),
+  panBy: (x: number, y: number) => controller?.panBy(x, y),
+  resetViewport: () => controller?.resetViewport(),
+})
+</script>
+
+<template>
+  <canvas v-show="available" ref="element" class="pixel-canvas" :aria-label="level.title + '涂色画布'">
+    当前浏览器不支持 Canvas。
+  </canvas>
+  <p v-if="!available" role="status">当前浏览器无法绘制像素画布。</p>
+</template>
+
+<style scoped>
+.pixel-canvas {
+  display: block;
+  width: 100%;
+  height: clamp(240px, 55vh, 520px);
+  border: 0;
+  padding: 0;
+  touch-action: none;
+}
+</style>
