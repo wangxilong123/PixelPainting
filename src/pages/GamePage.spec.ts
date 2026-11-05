@@ -7,6 +7,12 @@ import { getLevels } from '../services/levelService'
 const [first, second, third] = getLevels()
 const completedAt = '2026-11-05T08:00:00.000Z'
 
+vi.mock('../services/audioService', () => ({
+  playPaintSound: vi.fn(),
+  setSoundEnabled: vi.fn(),
+  isSoundEnabled: () => true,
+}))
+
 function firstTarget(level: Level): [number, number] {
   const index = level.cells.findIndex((color) => color !== 0)
   return [index, level.cells[index]]
@@ -411,5 +417,70 @@ describe('GamePage', () => {
     wrapper.unmount()
     vi.advanceTimersByTime(5000)
     expect(session.currentProgress.value?.elapsedSeconds).toBe(3)
+  })
+
+  it('plays the paint sounds and the completion phrase', async () => {
+    const { wrapper, stub } = await mountGame(first.id)
+    try {
+      const { playPaintSound } = await import('../services/audioService')
+      const canvas = wrapper.findComponent(stub)
+      const [index, color] = firstTarget(first)
+
+      canvas.vm.$emit('paint', { status: 'painted', index, colorId: color })
+      canvas.vm.$emit('paint', { status: 'incorrect', index, colorId: 99 })
+      canvas.vm.$emit('paint', { status: 'ignored' })
+      await flushPromises()
+      expect(playPaintSound).toHaveBeenCalledTimes(2)
+      expect(playPaintSound).toHaveBeenNthCalledWith(1, 'correct')
+      expect(playPaintSound).toHaveBeenNthCalledWith(2, 'incorrect')
+
+      paintAllTargets(canvas)
+      canvas.vm.$emit('completed')
+      await flushPromises()
+      expect(playPaintSound).toHaveBeenLastCalledWith('complete')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('opens the settings drawer and applies the remaining-count switch', async () => {
+    const { wrapper } = await mountGame(first.id)
+    try {
+      expect(wrapper.find('.settings-drawer').exists()).toBe(false)
+      await button(wrapper, '设置').trigger('click')
+      expect(wrapper.find('.settings-drawer').exists()).toBe(true)
+      expect(wrapper.findAll('.swatch-count').length).toBeGreaterThan(0)
+
+      await wrapper.findAll('.setting-row input')[1].setValue(false)
+      await flushPromises()
+      expect(wrapper.findAll('.swatch-count')).toHaveLength(0)
+      expect(JSON.parse(localStorage.getItem('pixel-painting:v1:settings') ?? 'null'))
+        .toEqual({ soundEnabled: true, showRemaining: false })
+
+      await button(wrapper, '关闭').trigger('click')
+      expect(wrapper.find('.settings-drawer').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('hides the top bar in immersive mode and brings it back on exit', async () => {
+    const { wrapper } = await mountGame(first.id)
+    try {
+      await button(wrapper, '设置').trigger('click')
+      await wrapper.findAll('.setting-row input')[2].setValue(true)
+      await flushPromises()
+
+      expect(wrapper.find('.game-bar').exists()).toBe(false)
+      expect(wrapper.find('.settings-drawer').exists()).toBe(false)
+      expect(wrapper.find('.game-controls').exists()).toBe(true)
+
+      await button(wrapper, '退出沉浸').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('.game-bar').exists()).toBe(true)
+      expect(wrapper.find('.settings-drawer').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
+    }
   })
 })

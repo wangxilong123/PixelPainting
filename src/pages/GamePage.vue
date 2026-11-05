@@ -4,8 +4,11 @@ import { useRoute, useRouter } from 'vue-router'
 import type { PaintResult } from '../canvas/pixelCanvas'
 import ColorPalette from '../components/ColorPalette.vue'
 import CompletionDialog from '../components/CompletionDialog.vue'
+import GameSettings from '../components/GameSettings.vue'
 import PixelCanvas from '../components/PixelCanvas.vue'
+import { useGameSettings } from '../composables/useGameSettings'
 import { useLevelProgress } from '../composables/useLevelProgress'
+import { playPaintSound } from '../services/audioService'
 import { getLevelById, getInteractiveCellCount } from '../services/levelService'
 
 const route = useRoute()
@@ -26,6 +29,14 @@ const {
 const levelId = computed(() => String(route.params.levelId ?? ''))
 const level = computed(() => getLevelById(levelId.value))
 const entered = ref(false)
+const settingsOpen = ref(false)
+
+const { showRemaining, immersive, toggleImmersive } = useGameSettings()
+
+// 进入沉浸模式时收起抽屉，退出时它不会突然盖回画布上
+watch(immersive, (value) => {
+  if (value) settingsOpen.value = false
+})
 
 const selectedColorId = ref<number | null>(null)
 const hintIndex = ref<number | null>(null)
@@ -144,9 +155,13 @@ function readPainted(): readonly number[] {
   return currentProgress.value?.painted ?? []
 }
 
-// 任务 6 在此接入正确与错误音效
 function onPaint(result: PaintResult): void {
+  if (result.status === 'incorrect') {
+    playPaintSound('incorrect')
+    return
+  }
   if (result.status !== 'painted') return
+  playPaintSound('correct')
   history.value.push({ index: result.index, colorId: result.colorId })
   redoStack.value = []
 }
@@ -155,11 +170,11 @@ function onProgress(progress: { paintedCount: number; total: number }): void {
   paintedCount.value = progress.paintedCount
 }
 
-// 任务 6 在此接入完成音效
 function onCompleted(): void {
   if (completedGuard) return
   completedGuard = true
   stopTimer()
+  playPaintSound('complete')
   dialogOpen.value = true
 }
 
@@ -218,12 +233,26 @@ function backToList(): void {
 
 <template>
   <div v-if="entered && level && currentProgress" class="game-page">
-    <header class="game-bar">
+    <header v-if="!immersive" class="game-bar">
       <button type="button" @click="router.push({ name: 'levels' })">返回</button>
       <h2 class="game-title">{{ level.title }}</h2>
       <span class="game-stat">已填 {{ paintedCount }} / {{ total }}</span>
       <span class="game-stat game-timer" role="timer">{{ timeDisplay }}</span>
+      <div class="game-settings">
+        <button
+          type="button"
+          :aria-expanded="settingsOpen"
+          @click="settingsOpen = !settingsOpen"
+        >
+          设置
+        </button>
+        <GameSettings :open="settingsOpen" @close="settingsOpen = false" />
+      </div>
     </header>
+
+    <button v-else type="button" class="immersive-exit" @click="toggleImmersive">
+      退出沉浸
+    </button>
 
     <PixelCanvas
       ref="canvasRef"
@@ -257,6 +286,7 @@ function backToList(): void {
       :cells="level.cells"
       :painted="currentProgress.painted"
       :selected-color-id="selectedColorId"
+      :show-remaining="showRemaining"
       @select="selectedColorId = $event"
     />
 
@@ -282,6 +312,7 @@ function backToList(): void {
 }
 
 .game-bar {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -290,6 +321,28 @@ function backToList(): void {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
+}
+
+/* 沉浸模式下顶栏和导航都收起来，只留一个角落里的退出按钮 */
+.immersive-exit {
+  position: fixed;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: 30;
+  padding: 0.3rem 0.8rem;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.immersive-exit:hover {
+  color: var(--color-text);
+  opacity: 1;
 }
 
 .game-title {

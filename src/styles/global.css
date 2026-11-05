@@ -56,6 +56,13 @@ h2 {
   padding: var(--space-8) 0;
 }
 
+/* 沉浸模式下没有顶栏，画布可以用满宽度 */
+.app-main.immersive {
+  width: calc(100% - 2rem);
+  max-width: none;
+  padding-top: var(--space-4);
+}
+
 .app-main > h2 {
   padding: var(--space-6);
   border: 1px solid var(--color-border);
