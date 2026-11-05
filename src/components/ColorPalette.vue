@@ -34,9 +34,12 @@ const remaining = computed(() => {
       class="color-swatch"
       :class="{ selected: selectedColorId === color.id }"
       :aria-pressed="selectedColorId === color.id"
+      :aria-label="`颜色 ${color.id} ${color.name}`"
       @click="emit('select', color.id)"
     >
-      <span class="swatch-fill" :style="{ background: color.hex }" aria-hidden="true" />
+      <span class="swatch-fill" :style="{ background: color.hex }" aria-hidden="true">
+        <span class="swatch-index">{{ color.id }}</span>
+      </span>
       <span class="swatch-name">{{ color.name }}</span>
       <span v-if="showRemaining" class="swatch-count">
         {{ (remaining.get(color.id)?.target ?? 0) - (remaining.get(color.id)?.done ?? 0) }}
@@ -71,10 +74,27 @@ const remaining = computed(() => {
 }
 
 .swatch-fill {
+  position: relative;
   width: 2.25rem;
   height: 2.25rem;
   border: 1px solid var(--color-border);
   border-radius: 0.5rem;
+}
+
+/* 编号压在色块角上，底色用面板色，避免和填充色撞在一起看不清 */
+.swatch-index {
+  position: absolute;
+  top: -0.45rem;
+  left: -0.45rem;
+  min-width: 1.15rem;
+  padding: 0 0.2rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.4rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.7rem;
+  line-height: 1.15rem;
+  text-align: center;
 }
 
 .swatch-name {
