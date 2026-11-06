@@ -192,11 +192,14 @@ describe('pixel canvas drawing and hit testing', () => {
     view.controller.destroy()
   })
 
-  it('draws unfilled numbers, filled palette colors, selection, hints and temporary errors', () => {
+  it('tints empty cells and draws numbers, filled colors, selection, hints and temporary errors', () => {
     const view = setup([0, 1, 0, 0, 0, 0])
     view.draw()
     expect(view.context.fillText.mock.calls.map(([number]) => number)).toEqual(['2', '1', '2'])
     expect(view.fills).toContain('#AABBCC')
+    expect(view.fills).toContain('#e1e4ee')
+    expect(view.fills).toContain('#f4f0f2')
+    expect(view.fills).not.toContain('#f1f0f8')
     view.context.strokeRect.mockClear()
     view.controller.setSelectedColor(1)
     view.controller.setHint(2)

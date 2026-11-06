@@ -37,10 +37,26 @@ const fitScaleMax = 2
 const singleDigitFont = 12
 const doubleDigitFont = 9
 const minLabelPixels = 6
+const emptyFill = '#f1f0f8'
+const emptyChannels = [241, 240, 248]
+const tintStrength = 0.22
 type Gesture = 'pending' | 'paint' | 'pan' | 'pinch' | 'blocked'
 
 function labelFont(target: number): number {
   return target >= 10 ? doubleDigitFont : singleDigitFont
+}
+
+// 未涂色的格子透出一点目标色，玩家不看编号也能大致分辨区域
+function tintTowardsEmpty(hex: string): string {
+  const match = /^#([0-9a-f]{6})$/i.exec(hex)
+  if (!match) return emptyFill
+  const value = Number.parseInt(match[1], 16)
+  const channels = [(value >> 16) & 255, (value >> 8) & 255, value & 255]
+  const mixed = channels.map((channel, index) => {
+    const base = emptyChannels[index]
+    return Math.round(base + (channel - base) * tintStrength).toString(16).padStart(2, '0')
+  })
+  return `#${mixed.join('')}`
 }
 
 function isDefaultViewport(viewport: LevelViewport): boolean {
@@ -59,6 +75,7 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
   const { canvas, level, readPainted, commitPaint, onPaint, onViewportChange, autoFit = false } = options
   const context = canvas.getContext('2d')
   const palette = new Map(level.palette.map((color) => [color.id, color.hex]))
+  const emptyFills = new Map(level.palette.map((color) => [color.id, tintTowardsEmpty(color.hex)]))
   let viewport = createDefaultViewport()
   let selectedColor: number | null = null
   let hintIndex: number | null = null
@@ -136,7 +153,9 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
         const x = column * cellSize
         const y = row * cellSize
         const filled = painted[index] === target
-        context.fillStyle = filled ? palette.get(target) ?? '#f1f0f8' : '#f1f0f8'
+        context.fillStyle = filled
+          ? palette.get(target) ?? emptyFill
+          : emptyFills.get(target) ?? emptyFill
         context.fillRect(x, y, cellSize, cellSize)
         context.lineWidth = 1 / view.scale
         context.strokeStyle = '#64647d'
