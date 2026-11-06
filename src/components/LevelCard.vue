@@ -31,17 +31,21 @@ function activate(): void {
     :aria-disabled="unlocked ? undefined : 'true'"
     @click="activate"
   >
-    <img v-if="level.thumbnail" class="level-preview" :src="level.thumbnail" :alt="level.title" />
-    <PixelPreview v-else class="level-preview" :level="level" />
+    <span class="level-figure">
+      <img v-if="level.thumbnail" class="level-preview" :src="level.thumbnail" :alt="level.title" />
+      <PixelPreview v-else class="level-preview" :level="level" />
+    </span>
     <span class="level-title">{{ level.title }}</span>
     <span class="level-meta">
       {{ difficultyLabels[level.difficulty] }} · {{ level.width }}×{{ level.height }} · {{ cellCount }} 格
     </span>
-    <span v-if="!unlocked" class="level-badge">锁定</span>
-    <template v-else-if="completed">
-      <span class="level-stars" aria-label="星级">{{ '★'.repeat(stars ?? 0) }}{{ '☆'.repeat(3 - (stars ?? 0)) }}</span>
-      <span class="level-badge done">已完成</span>
-    </template>
+    <span class="level-status">
+      <span v-if="!unlocked" class="level-badge">锁定</span>
+      <template v-else-if="completed">
+        <span class="level-stars" aria-label="星级">{{ '★'.repeat(stars ?? 0) }}{{ '☆'.repeat(3 - (stars ?? 0)) }}</span>
+        <span class="level-badge done">已完成</span>
+      </template>
+    </span>
   </button>
 </template>
 
@@ -78,10 +82,28 @@ function activate(): void {
   opacity: 0.55;
 }
 
+/* 图片区吃掉卡片的剩余高度并让图片贴底，配上等高的状态行，
+   一排卡片的图片底边就落在同一条水平线上 */
+.level-figure {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+}
+
 .level-preview {
   width: 100%;
   max-width: 20rem;
   object-fit: contain;
+}
+
+.level-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 1.5rem;
 }
 
 .level-title {
