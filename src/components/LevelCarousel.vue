@@ -189,7 +189,7 @@ onMounted(() => scrollToIndex(activeIndex.value, 'auto'))
 /* 卡片宽度在这里改，预览图上限在 LevelCard.vue 的 .level-preview */
 .carousel-slot {
   flex: 0 0 auto;
-  width: min(24rem, 100%);
+  width: min(28rem, 100%);
   scroll-snap-align: center;
 }
 
