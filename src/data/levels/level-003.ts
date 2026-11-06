@@ -18,6 +18,7 @@ export const level003: Level = {
   difficulty: 2,
   width: 10,
   height: 8,
+  order: 3,
   palette: [
     { id: 1, hex: '#4A9D62', name: '茎叶绿' },
     { id: 2, hex: '#F6C453', name: '花心黄' },

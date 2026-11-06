@@ -184,11 +184,11 @@ describe('LevelCarousel', () => {
     const { wrapper } = mountCarousel({ records })
 
     const cards = wrapper.findAll('[data-level-id]')
-    expect(cards.map((card) => card.attributes('data-level-id'))).toEqual([first.id, second.id, third.id])
+    expect(cards.map((card) => card.attributes('data-level-id'))).toEqual(levels.map((level) => level.id))
     expect(cards[0].text()).toContain('★★★')
     expect(cards[0].text()).toContain('已完成')
     expect(cards[1].attributes('aria-disabled')).toBeUndefined()
-    expect(cards[2].attributes('aria-disabled')).toBe('true')
+    expect(cards[cards.length - 1].attributes('aria-disabled')).toBe('true')
   })
 
   it('drops smooth scrolling when the player prefers reduced motion', async () => {

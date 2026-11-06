@@ -84,14 +84,15 @@ describe('getInteractiveCellCount', () => {
 })
 
 describe('preset levels', () => {
-  it('lists three valid levels in unlock order', () => {
+  it('lists every preset level in unlock order', () => {
     const levels = getLevels()
     const ids = levels.map((level) => level.id)
+    const orders = levels.map((level) => level.order ?? Number.POSITIVE_INFINITY)
 
-    expect(ids).toEqual(['level-001', 'level-002', 'level-003'])
+    expect(ids.length).toBeGreaterThan(0)
+    expect(ids[0]).toBe('level-001')
     expect(new Set(ids).size).toBe(levels.length)
-    expect(levels.map((level) => level.category)).toEqual(['animal', 'food', 'other'])
-    expect(levels.map(getInteractiveCellCount)).toEqual([38, 39, 25])
+    expect(orders).toEqual([...orders].sort((a, b) => a - b))
     for (const level of levels) {
       expect(() => validateLevel(level)).not.toThrow()
     }

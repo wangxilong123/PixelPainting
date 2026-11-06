@@ -3,7 +3,8 @@ import { createMemoryHistory } from 'vue-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getLevels } from '../services/levelService'
 
-const [first, second, third] = getLevels()
+const levels = getLevels()
+const [first, second] = levels
 
 beforeEach(() => {
   localStorage.clear()
@@ -35,18 +36,18 @@ describe('LevelSelectPage', () => {
     try {
       expect(wrapper.findAll('.chip').map((chip) => chip.text()))
         .toEqual(['全部', '动物', '食物', '其他'])
-      expect(wrapper.find('.level-stats').text()).toContain('已完成 0/3')
-      expect(wrapper.find('.level-stats').text()).toContain('星级 0/9')
+      expect(wrapper.find('.level-stats').text()).toContain(`已完成 0/${levels.length}`)
+      expect(wrapper.find('.level-stats').text()).toContain(`星级 0/${levels.length * 3}`)
       expect(wrapper.find('.level-stats').text()).toContain(first.title)
 
       const cards = wrapper.findAll('[data-level-id]')
       expect(cards.map((card) => card.attributes('data-level-id')))
-        .toEqual([first.id, second.id, third.id])
+        .toEqual(levels.map((level) => level.id))
       expect(cards[0].attributes('aria-disabled')).toBeUndefined()
       expect(cards[0].text()).toContain(`${first.width}×${first.height}`)
       expect(cards[1].attributes('aria-disabled')).toBe('true')
       expect(cards[1].text()).toContain('锁定')
-      expect(cards[2].attributes('aria-disabled')).toBe('true')
+      expect(cards[cards.length - 1].attributes('aria-disabled')).toBe('true')
     } finally {
       wrapper.unmount()
     }
@@ -62,7 +63,7 @@ describe('LevelSelectPage', () => {
       expect(wrapper.find('.level-stats').text()).toContain(second.title)
 
       await chips[0].trigger('click')
-      expect(wrapper.findAll('[data-level-id]')).toHaveLength(3)
+      expect(wrapper.findAll('[data-level-id]')).toHaveLength(levels.length)
     } finally {
       wrapper.unmount()
     }
@@ -73,7 +74,7 @@ describe('LevelSelectPage', () => {
     const { wrapper } = await mountPage()
     try {
       await wrapper.findAll('.chip')[2].trigger('click')
-      expect(wrapper.find('.level-stats').text()).toContain('已完成 1/3')
+      expect(wrapper.find('.level-stats').text()).toContain(`已完成 1/${levels.length}`)
       expect(wrapper.findAll('[data-level-id]')).toHaveLength(1)
     } finally {
       wrapper.unmount()
@@ -84,13 +85,13 @@ describe('LevelSelectPage', () => {
     await completeFirstLevel()
     const { wrapper } = await mountPage()
     try {
-      expect(wrapper.find('.level-stats').text()).toContain('已完成 1/3')
-      expect(wrapper.find('.level-stats').text()).toContain('星级 3/9')
+      expect(wrapper.find('.level-stats').text()).toContain(`已完成 1/${levels.length}`)
+      expect(wrapper.find('.level-stats').text()).toContain(`星级 3/${levels.length * 3}`)
       const cards = wrapper.findAll('[data-level-id]')
       expect(cards[0].text()).toContain('★★★')
       expect(cards[0].text()).toContain('已完成')
       expect(cards[1].attributes('aria-disabled')).toBeUndefined()
-      expect(cards[2].attributes('aria-disabled')).toBe('true')
+      expect(cards[cards.length - 1].attributes('aria-disabled')).toBe('true')
     } finally {
       wrapper.unmount()
     }

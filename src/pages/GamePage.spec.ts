@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Level, LevelProgress } from '../models/level'
 import { getLevels } from '../services/levelService'
 
-const [first, second, third] = getLevels()
+const [first, second] = getLevels()
 const completedAt = '2026-11-05T08:00:00.000Z'
 
 vi.mock('../services/audioService', () => ({
@@ -338,8 +338,10 @@ describe('GamePage', () => {
   })
 
   it('hides the next button when the last level is completed', async () => {
-    await seedCompleted([first.id, second.id])
-    const { wrapper, stub } = await mountGame(third.id)
+    const levels = getLevels()
+    const last = levels[levels.length - 1]
+    await seedCompleted(levels.slice(0, -1).map((level) => level.id))
+    const { wrapper, stub } = await mountGame(last.id)
     try {
       const canvas = wrapper.findComponent(stub)
       paintAllTargets(canvas)

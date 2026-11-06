@@ -83,24 +83,26 @@ describe('progress rules', () => {
 
 describe('getLevelSummary', () => {
   it('counts cleared levels and their best stars', () => {
-    const [first] = getLevels()
+    const levels = getLevels()
+    const [first] = levels
+    const total = levels.length
 
-    expect(getLevelSummary({})).toEqual({ total: 3, completed: 0, stars: 0, maxStars: 9 })
+    expect(getLevelSummary({})).toEqual({ total, completed: 0, stars: 0, maxStars: total * 3 })
     expect(getLevelSummary({ [first.id]: { ...completedProgress(first), hintsUsed: 0 } }))
-      .toEqual({ total: 3, completed: 1, stars: 3, maxStars: 9 })
+      .toEqual({ total, completed: 1, stars: 3, maxStars: total * 3 })
   })
 
   it('keeps a replayed level counted through its best result', () => {
     const levels = getLevels()
-    const [first] = levels
+    const [first, second] = levels
     const replay: LevelProgress = {
       ...createEmptyProgress(first),
       bestResult: { completedAt, stars: 2, elapsedSeconds: 19, hintsUsed: 1 },
     }
 
     expect(getLevelSummary({ [first.id]: replay }))
-      .toEqual({ total: 3, completed: 1, stars: 2, maxStars: 9 })
-    expect(isLevelUnlocked(levels, { [first.id]: replay }, 'level-002')).toBe(true)
+      .toEqual({ total: levels.length, completed: 1, stars: 2, maxStars: levels.length * 3 })
+    expect(isLevelUnlocked(levels, { [first.id]: replay }, second.id)).toBe(true)
   })
 })
 

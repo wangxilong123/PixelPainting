@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Level } from '../models/level'
 import { getLevels } from '../services/levelService'
 
-const [first, second, third] = getLevels()
+const [first, second] = getLevels()
 const startTime = '2026-11-04T12:00:00.000Z'
 const finishTime = '2026-11-04T12:00:19.000Z'
 const viewport = { scale: 2, offsetX: -18, offsetY: 12 }
@@ -135,8 +135,10 @@ describe('useLevelProgress', () => {
     expect(progress.currentProgress.value).toBe(done)
     expect(progress.openLevel(second.id)).toBe(true)
     finishLevel(progress, second)
-    expect(progress.openLevel(third.id)).toBe(true)
-    finishLevel(progress, third)
+    for (const level of getLevels().slice(2)) {
+      expect(progress.openLevel(level.id)).toBe(true)
+      finishLevel(progress, level)
+    }
     expect(progress.getNextLevelId()).toBeUndefined()
   })
 
