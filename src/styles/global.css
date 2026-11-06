@@ -56,11 +56,17 @@ h2 {
   padding: var(--space-8) 0;
 }
 
-/* 沉浸模式下没有顶栏，画布可以用满宽度 */
+/* 沉浸模式下没有顶栏，画布可以用满宽度，内容在视口里居中 */
 .app-main.immersive {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* 内容比视口高时退回靠上排布，否则顶部会被裁掉且滚不回来 */
+  justify-content: safe center;
   width: calc(100% - 2rem);
   max-width: none;
-  padding-top: var(--space-4);
+  min-height: 100vh;
+  padding: var(--space-4) 0;
 }
 
 .app-main > h2 {

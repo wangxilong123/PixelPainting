@@ -80,7 +80,7 @@ function activate(): void {
 
 .level-preview {
   width: 100%;
-  max-width: 7rem;
+  max-width: 12rem;
   object-fit: contain;
 }
 
