@@ -192,8 +192,9 @@ onMounted(() => scrollToIndex(activeIndex.value, 'auto'))
   scroll-snap-align: center;
 }
 
+/* 居中外圈用投影而不是边框，免得和完成、锁定态的边框颜色打架 */
 .carousel-slot.active {
-  border-color: var(--color-primary);
+  box-shadow: 0 0 0 var(--border-pixel) var(--color-primary);
 }
 
 @media (prefers-reduced-motion: reduce) {

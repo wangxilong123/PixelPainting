@@ -26,7 +26,7 @@ function activate(): void {
   <button
     type="button"
     class="level-card"
-    :class="{ locked: !unlocked }"
+    :class="{ locked: !unlocked, completed }"
     :data-level-id="level.id"
     :aria-disabled="unlocked ? undefined : 'true'"
     @click="activate"
@@ -52,12 +52,25 @@ function activate(): void {
   align-items: center;
   gap: 0.4rem;
   padding: var(--space-4);
-  border: 2px solid var(--color-border);
+  border: var(--border-pixel) solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
   cursor: pointer;
+  transition: transform var(--transition-fast), border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.level-card:hover:not(.locked) {
+  border-color: var(--color-border-strong);
+  transform: translateY(-2px);
+}
+
+/* 完成态只改边框和底色，不整块换色 */
+.level-card.completed {
+  border-color: var(--color-primary);
+  background: var(--color-surface-raised);
 }
 
 .level-card.locked {

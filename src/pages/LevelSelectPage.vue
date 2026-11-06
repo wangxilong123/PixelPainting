@@ -103,13 +103,19 @@ function open(levelId: string): void {
 
 .chip {
   padding: 0.3rem 0.9rem;
-  border: 1px solid var(--color-border);
+  border: var(--border-pixel) solid var(--color-border);
   border-radius: 999px;
   background: transparent;
   color: var(--color-text-muted);
   font: inherit;
   font-size: 0.85rem;
   cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.chip:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
 }
 
 .chip.selected {

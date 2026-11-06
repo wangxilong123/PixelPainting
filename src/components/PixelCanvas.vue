@@ -82,12 +82,14 @@ defineExpose({
 </template>
 
 <style scoped>
+/* 不加边框：指针按 getBoundingClientRect 映射到绘制表面，边框会让点击偏移两像素 */
 .pixel-canvas {
   display: block;
   width: 100%;
-  height: clamp(240px, 55vh, 520px);
+  height: clamp(15rem, 58vh, 34rem);
   border: 0;
   padding: 0;
+  background: var(--color-surface);
   touch-action: none;
 }
 </style>

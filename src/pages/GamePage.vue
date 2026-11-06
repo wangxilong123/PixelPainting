@@ -57,6 +57,9 @@ const isCompleted = computed(() => currentProgress.value?.completedAt !== undefi
 const canUndo = computed(() => history.value.length > 0 && !isCompleted.value)
 const canRedo = computed(() => redoStack.value.length > 0 && !isCompleted.value)
 const total = computed(() => (level.value ? getInteractiveCellCount(level.value) : 0))
+const progressPercent = computed(() =>
+  total.value === 0 ? '0%' : `${Math.round((paintedCount.value / total.value) * 100)}%`,
+)
 const timeDisplay = computed(() => formatTime(elapsed.value))
 const resultStars = computed(() => currentProgress.value?.stars ?? 3)
 const resultElapsed = computed(() => currentProgress.value?.elapsedSeconds ?? 0)
@@ -248,6 +251,16 @@ function backToList(): void {
         </button>
         <GameSettings :open="settingsOpen" @close="settingsOpen = false" />
       </div>
+      <div
+        class="game-progress"
+        role="progressbar"
+        aria-label="涂色进度"
+        :aria-valuenow="paintedCount"
+        :aria-valuemin="0"
+        :aria-valuemax="total"
+      >
+        <span class="game-progress-fill" :style="{ width: progressPercent }" />
+      </div>
     </header>
 
     <button v-else type="button" class="immersive-exit" @click="toggleImmersive">
@@ -362,12 +375,19 @@ function backToList(): void {
 .game-bar button,
 .game-controls button {
   padding: 0.4rem 0.9rem;
-  border: 2px solid var(--color-border);
+  border: var(--border-pixel) solid var(--color-border);
   border-radius: var(--radius-lg);
   background: transparent;
   color: var(--color-text);
   font: inherit;
   cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.game-bar button:hover:not(:disabled),
+.game-controls button:hover:not(:disabled) {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-raised);
 }
 
 .game-bar button:disabled,
@@ -377,8 +397,23 @@ function backToList(): void {
 }
 
 .game-controls button.danger {
-  border-color: #f87171;
-  color: #f87171;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* 进度条占满一整行，压在顶栏底部，不额外吃画布空间 */
+.game-progress {
+  flex-basis: 100%;
+  height: 0.375rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+}
+
+.game-progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+  transition: width var(--transition-fast);
 }
 
 .game-controls {

@@ -49,28 +49,38 @@ const remaining = computed(() => {
 </template>
 
 <style scoped>
+/* 颜色多时横向滚动，不把画布顶下去；内边距给角上的编号留出位置 */
 .color-palette {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-1);
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 .color-swatch {
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.25rem;
   padding: 0.5rem;
-  border: 2px solid var(--color-border);
+  border: var(--border-pixel) solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
   cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.color-swatch:hover {
+  border-color: var(--color-border-strong);
 }
 
 .color-swatch.selected {
   border-color: var(--color-primary);
+  background: var(--color-surface-raised);
 }
 
 .swatch-fill {
