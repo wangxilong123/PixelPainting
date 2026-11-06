@@ -30,7 +30,7 @@ npm run build      # vue-tsc 类型检查 + vite build
 | `category` | 分类注册表 ID，见 `src/data/categories.ts`，未知值归入「其他」 |
 | `difficulty` | `1` 简单、`2` 普通、`3` 进阶 |
 | `width` / `height` | 格子数 |
-| `palette` | `{ id, hex, name }` 列表，`id` 从 1 连续递增 |
+| `palette` | `{ id, hex, name }` 列表，`id` 从 1 连续递增，`name` 只留在数据里，界面上显示编号 |
 | `cells` | 行优先的颜色编号数组，长度等于 `width * height`，`0` 表示不参与涂色的空格 |
 | `order` | 可选，解锁顺序，升序排列，没有 `order` 的关卡按注册顺序排在后面 |
 | `thumbnail` | 可选，缩略图地址，缺省时用 `PixelPreview` 的 CSS 网格预览 |

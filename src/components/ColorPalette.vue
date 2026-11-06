@@ -34,13 +34,12 @@ const remaining = computed(() => {
       class="color-swatch"
       :class="{ selected: selectedColorId === color.id }"
       :aria-pressed="selectedColorId === color.id"
-      :aria-label="`颜色 ${color.id} ${color.name}`"
+      :aria-label="`颜色 ${color.id}`"
       @click="emit('select', color.id)"
     >
       <span class="swatch-fill" :style="{ background: color.hex }" aria-hidden="true">
         <span class="swatch-index">{{ color.id }}</span>
       </span>
-      <span class="swatch-name">{{ color.name }}</span>
       <span v-if="showRemaining" class="swatch-count">
         {{ (remaining.get(color.id)?.target ?? 0) - (remaining.get(color.id)?.done ?? 0) }}
       </span>
@@ -105,10 +104,6 @@ const remaining = computed(() => {
   font-size: 0.7rem;
   line-height: 1.15rem;
   text-align: center;
-}
-
-.swatch-name {
-  font-size: 0.8rem;
 }
 
 .swatch-count {
