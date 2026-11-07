@@ -182,8 +182,11 @@ function onCompleted(): void {
 }
 
 function useHint(): void {
-  const index = recordHint()
-  if (index !== undefined) hintIndex.value = index
+  const index = recordHint(selectedColorId.value)
+  if (index === undefined) return
+  hintIndex.value = index
+  // 直接调画布而不是靠 hintIndex 的 watch，重复点提示时同一格也要重新居中
+  canvasRef.value?.centerOnCell(index)
 }
 
 function undo(): void {
@@ -320,6 +323,7 @@ function backToList(): void {
 <style scoped>
 .game-page {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-4);
 }

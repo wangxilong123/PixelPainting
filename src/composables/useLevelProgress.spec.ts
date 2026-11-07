@@ -12,6 +12,8 @@ function firstTarget(level: Level): [number, number] {
   return [index, level.cells[index]]
 }
 
+const firstColor = firstTarget(first)[1]
+
 type Session = ReturnType<typeof import('./useLevelProgress').useLevelProgress>
 
 async function session(): Promise<Session> {
@@ -81,13 +83,31 @@ describe('useLevelProgress', () => {
     progress.openLevel(first.id)
     const [index, color] = firstTarget(first)
     const painted = progress.currentProgress.value?.painted
-    expect(progress.recordHint()).toBe(index)
+    expect(progress.recordHint(color)).toBe(index)
     expect(progress.currentProgress.value?.hintsUsed).toBe(1)
     expect(progress.currentProgress.value?.painted).toEqual(painted)
     progress.paintCell(index, color)
-    expect(progress.recordHint()).toBeGreaterThan(index)
+    expect(progress.recordHint(color)).toBeGreaterThan(index)
     finishLevel(progress, first)
-    expect(progress.recordHint()).toBeUndefined()
+    expect(progress.recordHint(color)).toBeUndefined()
+    expect(progress.currentProgress.value?.hintsUsed).toBe(2)
+  })
+
+  it('hints only within the selected color and stops once that color is done', async () => {
+    const progress = await session()
+    progress.openLevel(first.id)
+    const firstOf = (colorId: number) => first.cells.findIndex((color) => color === colorId)
+
+    expect(progress.recordHint(2)).toBe(firstOf(2))
+    expect(progress.recordHint(3)).toBe(firstOf(3))
+    expect(progress.currentProgress.value?.hintsUsed).toBe(2)
+
+    // 该色涂完就不再给提示，调色板同时会禁用这个色块
+    for (const [index, color] of first.cells.entries()) {
+      if (color === 2) progress.paintCell(index, 2)
+    }
+    expect(progress.recordHint(2)).toBeUndefined()
+    expect(progress.recordHint(null)).toBeUndefined()
     expect(progress.currentProgress.value?.hintsUsed).toBe(2)
   })
 
@@ -95,7 +115,7 @@ describe('useLevelProgress', () => {
     const progress = await session()
     progress.openLevel(first.id)
     progress.paintCell(...firstTarget(first))
-    progress.recordHint()
+    progress.recordHint(firstColor)
     progress.setElapsedSeconds(19)
     progress.setElapsedSeconds(10)
     progress.setElapsedSeconds(-1)
@@ -116,7 +136,7 @@ describe('useLevelProgress', () => {
   it('settles the last cell once and immediately unlocks the next level', async () => {
     const progress = await session()
     progress.openLevel(first.id)
-    progress.recordHint()
+    progress.recordHint(firstColor)
     progress.setElapsedSeconds(19)
     vi.setSystemTime(new Date(finishTime))
     finishLevel(progress, first)
@@ -162,7 +182,7 @@ describe('useLevelProgress', () => {
       bestResult: best,
     })
     expect(progress.getNextLevelId()).toBe(second.id)
-    progress.recordHint()
+    progress.recordHint(firstColor)
     progress.setElapsedSeconds(10)
     finishLevel(progress, first)
     expect(progress.currentProgress.value?.stars).toBe(2)
@@ -268,7 +288,7 @@ describe('useLevelProgress', () => {
     expect(best).toMatchObject({ stars: 3, elapsedSeconds: 0, hintsUsed: 0 })
 
     progress.restartLevel()
-    progress.recordHint()
+    progress.recordHint(firstColor)
     const targets = first.cells.flatMap((color, index) => (color === 0 ? [] : [[index, color]]))
     const [[xIndex, xColor], [yIndex, yColor]] = targets
     progress.paintCell(xIndex, xColor)

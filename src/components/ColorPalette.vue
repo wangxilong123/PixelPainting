@@ -23,6 +23,11 @@ const remaining = computed(() => {
   })
   return counts
 })
+
+function remainingOf(colorId: number): number {
+  const entry = remaining.value.get(colorId)
+  return (entry?.target ?? 0) - (entry?.done ?? 0)
+}
 </script>
 
 <template>
@@ -33,6 +38,7 @@ const remaining = computed(() => {
       type="button"
       class="color-swatch"
       :class="{ selected: selectedColorId === color.id }"
+      :disabled="remainingOf(color.id) === 0"
       :aria-pressed="selectedColorId === color.id"
       :aria-label="`颜色 ${color.id}`"
       @click="emit('select', color.id)"
@@ -40,9 +46,7 @@ const remaining = computed(() => {
       <span class="swatch-fill" :style="{ background: color.hex }" aria-hidden="true">
         <span class="swatch-index">{{ color.id }}</span>
       </span>
-      <span v-if="showRemaining" class="swatch-count">
-        {{ (remaining.get(color.id)?.target ?? 0) - (remaining.get(color.id)?.done ?? 0) }}
-      </span>
+      <span v-if="showRemaining" class="swatch-count">{{ remainingOf(color.id) }}</span>
     </button>
   </div>
 </template>
@@ -73,8 +77,14 @@ const remaining = computed(() => {
   transition: border-color var(--transition-fast);
 }
 
-.color-swatch:hover {
+.color-swatch:hover:not(:disabled) {
   border-color: var(--color-border-strong);
+}
+
+/* 涂完的颜色禁用，玩家就不会选到一个没有剩余格子的色 */
+.color-swatch:disabled {
+  cursor: default;
+  opacity: 0.4;
 }
 
 .color-swatch.selected {

@@ -20,6 +20,7 @@ function firstTarget(level: Level): [number, number] {
 
 function createCanvasStub() {
   const resetViewport = vi.fn()
+  const centerOnCell = vi.fn()
   const component = {
     name: 'PixelCanvas',
     props: {
@@ -37,9 +38,10 @@ function createCanvasStub() {
       zoomAt: () => {},
       panBy: () => {},
       resetViewport: () => resetViewport(),
+      centerOnCell: (index: number) => centerOnCell(index),
     },
   }
-  return { component, resetViewport }
+  return { component, resetViewport, centerOnCell }
 }
 
 beforeEach(() => {
@@ -64,7 +66,13 @@ async function mountGame(levelId: string) {
     global: { plugins: [router], stubs: { PixelCanvas: stub.component } },
   })
   await flushPromises()
-  return { wrapper, router, stub: stub.component, resetViewport: stub.resetViewport }
+  return {
+    wrapper,
+    router,
+    stub: stub.component,
+    resetViewport: stub.resetViewport,
+    centerOnCell: stub.centerOnCell,
+  }
 }
 
 async function progressSession() {
@@ -250,14 +258,29 @@ describe('GamePage', () => {
     }
   })
 
-  it('records a hint and highlights the first unfilled target cell', async () => {
-    const { wrapper, stub } = await mountGame(first.id)
+  it('hints the first unfilled cell of the selected color and centers it', async () => {
+    const { wrapper, stub, centerOnCell } = await mountGame(first.id)
     try {
+      const [index] = firstTarget(first)
       await button(wrapper, '提示').trigger('click')
       const canvas = wrapper.findComponent(stub)
-      expect(canvas.props('hintIndex')).toBe(firstTarget(first)[0])
+      expect(canvas.props('hintIndex')).toBe(index)
+      expect(centerOnCell).toHaveBeenCalledExactlyOnceWith(index)
       const session = await progressSession()
       expect(session.currentProgress.value?.hintsUsed).toBe(1)
+
+      // 同一个格子再点一次也要重新居中，玩家可能已经平移走了
+      await button(wrapper, '提示').trigger('click')
+      expect(centerOnCell).toHaveBeenCalledTimes(2)
+      expect(session.currentProgress.value?.hintsUsed).toBe(2)
+
+      // 换色之后提示跟着挑新选中色的第一个未涂格
+      await wrapper.findAll('.color-swatch')[1].trigger('click')
+      await button(wrapper, '提示').trigger('click')
+      const otherIndex = first.cells.findIndex((color) => color === first.palette[1].id)
+      expect(canvas.props('hintIndex')).toBe(otherIndex)
+      expect(centerOnCell).toHaveBeenLastCalledWith(otherIndex)
+      expect(session.currentProgress.value?.hintsUsed).toBe(3)
     } finally {
       wrapper.unmount()
     }

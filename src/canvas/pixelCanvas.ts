@@ -26,6 +26,7 @@ export type PixelCanvasController = {
   resetViewport(): void
   setViewport(viewport: LevelViewport): void
   setHint(index: number | null): void
+  centerOnCell(index: number): void
   invalidate(): void
   destroy(): void
 }
@@ -254,6 +255,20 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
     updateViewport(panViewport(viewport, { x: deltaX, y: deltaY }), true)
   }
 
+  // 提示要把目标格送到画布中央，玩家缩放平移之后高亮环可能已经落在视野外
+  function centerOnCell(index: number): void {
+    if (destroyed || !Number.isInteger(index) || index < 0 || index >= level.cells.length) return
+    const { width, height } = canvas.getBoundingClientRect()
+    if (width <= 0 || height <= 0) return
+    beginUserViewport()
+    const scale = viewport.scale
+    updateViewport({
+      scale,
+      offsetX: width / 2 - ((index % level.width) + 0.5) * cellSize * scale,
+      offsetY: height / 2 - (Math.floor(index / level.width) + 0.5) * cellSize * scale,
+    }, true)
+  }
+
   function localPoint(event: MouseEvent): Point {
     const bounds = canvas.getBoundingClientRect()
     return { x: event.clientX - bounds.left, y: event.clientY - bounds.top }
@@ -396,6 +411,7 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
     },
     zoomAt,
     panBy,
+    centerOnCell,
     resetViewport() {
       userAdjusted = false
       updateViewport(createDefaultViewport(), true)

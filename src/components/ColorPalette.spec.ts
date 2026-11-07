@@ -46,4 +46,15 @@ describe('ColorPalette', () => {
       .toEqual(['1', '1', '1'])
     expect(mountPalette(false).findAll('.swatch-count')).toHaveLength(0)
   })
+
+  it('disables the swatches whose color has no unfilled cell left', () => {
+    const wrapper = mount(ColorPalette, {
+      props: { palette, cells, painted: [0, 1, 2, 0, 1], selectedColorId: 12 },
+    })
+    const buttons = wrapper.findAll('.color-swatch')
+    expect(buttons.map((node) => (node.element as HTMLButtonElement).disabled))
+      .toEqual([true, true, false])
+    expect(wrapper.findAll('.swatch-count').map((node) => node.text().trim()))
+      .toEqual(['0', '0', '1'])
+  })
 })

@@ -38,7 +38,7 @@ describe('LevelSelectPage', () => {
         .toEqual(['全部', '动物', '食物', '其他'])
       expect(wrapper.find('.level-stats').text()).toContain(`已完成 0/${levels.length}`)
       expect(wrapper.find('.level-stats').text()).toContain(`星级 0/${levels.length * 3}`)
-      expect(wrapper.find('.level-stats').text()).toContain(first.title)
+      expect(wrapper.find('.level-stats').text()).not.toContain(first.title)
 
       const cards = wrapper.findAll('[data-level-id]')
       expect(cards.map((card) => card.attributes('data-level-id')))
@@ -60,7 +60,6 @@ describe('LevelSelectPage', () => {
       await chips[2].trigger('click')
       expect(wrapper.findAll('[data-level-id]').map((card) => card.attributes('data-level-id')))
         .toEqual([second.id])
-      expect(wrapper.find('.level-stats').text()).toContain(second.title)
 
       await chips[0].trigger('click')
       expect(wrapper.findAll('[data-level-id]')).toHaveLength(levels.length)

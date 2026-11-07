@@ -71,6 +71,7 @@ defineExpose({
   zoomAt: (x: number, y: number, delta: number) => controller?.zoomAt(x, y, delta),
   panBy: (x: number, y: number) => controller?.panBy(x, y),
   resetViewport: () => controller?.resetViewport(),
+  centerOnCell: (index: number) => controller?.centerOnCell(index),
 })
 </script>
 
@@ -85,8 +86,11 @@ defineExpose({
 /* 不加边框：指针按 getBoundingClientRect 映射到绘制表面，边框会让点击偏移两像素 */
 .pixel-canvas {
   display: block;
+  /* 吃掉游戏页的剩余高度，屏幕太矮时退回 min-height 让页面滚动。
+     basis 必须是 0：canvas 有内在宽高比，auto 会让背板尺寸反过来撑高布局 */
+  flex: 1 1 0;
   width: 100%;
-  height: clamp(15rem, 58vh, 34rem);
+  min-height: clamp(15rem, 58vh, 34rem);
   border: 0;
   padding: 0;
   background: var(--color-surface);

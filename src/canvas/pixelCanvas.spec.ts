@@ -333,6 +333,24 @@ describe('pixel canvas auto fit and right-drag pan', () => {
     view.controller.destroy()
   })
 
+  it('centers a hinted cell in the viewport and keeps hit testing aligned', () => {
+    const view = setup([0, 0, 0, 0, 0, 0], 'painted', true)
+    view.controller.centerOnCell(2)
+    view.draw()
+    expect(view.onViewportChange).toHaveBeenCalledExactlyOnceWith({ scale: 2, offsetX: 30, offsetY: 76 })
+    view.controller.setSelectedColor(2)
+    expect(view.controller.paintAt(150, 100)).toEqual({ status: 'painted', index: 2, colorId: 2 })
+    view.controller.destroy()
+  })
+
+  it('ignores a center request for an index outside the board', () => {
+    const view = setup()
+    for (const index of [-1, 6, 1.5, Number.NaN]) view.controller.centerOnCell(index)
+    view.draw()
+    expect(view.onViewportChange).not.toHaveBeenCalled()
+    view.controller.destroy()
+  })
+
   it('pans with the right button and suppresses the context menu', () => {
     const view = setup()
     pointer(view.canvas, 'pointerdown', 12, 12, { button: 2 })

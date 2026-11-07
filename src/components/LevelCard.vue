@@ -31,7 +31,7 @@ function activate(): void {
     :aria-disabled="unlocked ? undefined : 'true'"
     @click="activate"
   >
-    <span class="level-figure">
+    <span class="level-figure" :class="{ portrait: level.height > level.width }">
       <img v-if="level.thumbnail" class="level-preview" :src="level.thumbnail" :alt="level.title" />
       <PixelPreview v-else class="level-preview" :level="level" />
     </span>
@@ -82,20 +82,29 @@ function activate(): void {
   opacity: 0.55;
 }
 
-/* 图片区吃掉卡片的剩余高度并让图片贴底，配上等高的状态行，
-   一排卡片的图片底边就落在同一条水平线上 */
+/* 预览区是固定的正方形盒子，卡片高度就跟关卡的宽高比和当前筛选无关；
+   图片贴底，配上等高的状态行，一排卡片的图片底边落在同一条水平线上 */
 .level-figure {
   display: flex;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   align-items: flex-end;
   justify-content: center;
   width: 100%;
+  /* 和 .level-preview 的 max-width 保持一致 */
+  height: 20rem;
 }
 
 .level-preview {
   width: 100%;
   max-width: 20rem;
+  max-height: 100%;
   object-fit: contain;
+}
+
+/* 竖图按盒子高度驱动，不然会被 max-height 压扁 */
+.portrait .level-preview {
+  width: auto;
+  height: 100%;
 }
 
 .level-status {

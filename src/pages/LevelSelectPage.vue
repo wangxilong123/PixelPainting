@@ -23,10 +23,6 @@ const visibleLevels = computed(() =>
 
 const summary = computed(() => getLevelSummary(levelRecords.value))
 
-const activeLevel = computed(
-  () => levels.find((level) => level.id === activeLevelId.value) ?? visibleLevels.value[0],
-)
-
 function open(levelId: string): void {
   router.push({ name: 'game', params: { levelId } })
 }
@@ -37,7 +33,6 @@ function open(levelId: string): void {
     <div class="level-stats">
       <span class="stat">已完成 {{ summary.completed }}/{{ summary.total }}</span>
       <span class="stat">星级 {{ summary.stars }}/{{ summary.maxStars }}</span>
-      <span class="stat current">{{ activeLevel?.title }}</span>
     </div>
 
     <div class="category-chips" role="group" aria-label="分类筛选">
@@ -88,13 +83,6 @@ function open(levelId: string): void {
   color: var(--color-text-muted);
 }
 
-.stat.current {
-  margin-left: auto;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
 .category-chips {
   display: flex;
   flex-wrap: wrap;
@@ -133,11 +121,6 @@ function open(levelId: string): void {
 @media (max-width: 640px) {
   .level-stats {
     padding: var(--space-4);
-  }
-
-  .stat.current {
-    margin-left: 0;
-    width: 100%;
   }
 
   .carousel-hint {

@@ -137,12 +137,16 @@ export function useLevelProgress() {
     return true
   }
 
-  function recordHint(): number | undefined {
+  function recordHint(colorId: number | null): number | undefined {
     const level = currentLevel.value
     const progress = attempt.value
-    if (!level || !progress || progress.completedAt) return
+    if (!level || !progress || progress.completedAt || colorId === null) return
 
-    const index = level.cells.findIndex((color, i) => color !== 0 && progress.painted[i] === 0)
+    // 只挑当前选中色的未涂格，玩家照着提示就能直接涂；
+    // 涂完的颜色在调色板里已经禁用，所以这里不需要回退到别的颜色
+    const index = level.cells.findIndex(
+      (color, i) => color === colorId && progress.painted[i] === 0,
+    )
     if (index === -1) return
 
     saveAttempt({ ...progress, hintsUsed: progress.hintsUsed + 1 })
