@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useLevelProgress } from '../composables/useLevelProgress'
 import { getLevels } from '../services/levelService'
-import { isLevelUnlocked } from '../services/progressService'
+import { isLevelUnlocked, getLevelSummary } from '../services/progressService'
 
 const router = useRouter()
 const levels = getLevels()
@@ -22,22 +22,7 @@ const continueLevelId = computed(() => {
   return id !== null && levelRecords.value[id]?.completedAt === undefined ? id : null
 })
 
-const summary = computed(() => {
-  const records = levelRecords.value
-  let completed = 0
-  let stars = 0
-  for (const level of levels) {
-    const attempt = records[level.id]
-    if (attempt?.bestResult) {
-      completed += 1
-      stars += attempt.bestResult.stars
-    } else if (attempt?.completedAt) {
-      completed += 1
-      stars += attempt.stars ?? 0
-    }
-  }
-  return { completed, total: levels.length, stars, maxStars: levels.length * 3 }
-})
+const summary = computed(() => getLevelSummary(levelRecords.value))
 
 function go(levelId: string | null): void {
   if (levelId) router.push({ name: 'game', params: { levelId } })
@@ -48,7 +33,7 @@ function go(levelId: string | null): void {
   <div class="home-page">
     <h2>欢迎来到像素涂色</h2>
     <p class="home-summary">
-      已完成 {{ summary.completed }} / {{ summary.total }} 关 · 累计 {{ summary.stars }} / {{ summary.maxStars }} 星
+      已完成 {{ summary.completed }} / {{ summary.total }} 关
     </p>
     <div class="home-actions">
       <button type="button" class="primary" @click="go(startLevelId)">开始游戏</button>

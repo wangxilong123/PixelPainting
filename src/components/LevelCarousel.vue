@@ -28,7 +28,6 @@ const entries = computed(() =>
     return {
       level,
       unlocked: isLevelUnlocked(allLevels, props.records, level.id),
-      stars: attempt?.bestResult?.stars ?? attempt?.stars,
       cleared: isLevelCleared(level, attempt),
     }
   }),
@@ -162,7 +161,6 @@ onMounted(() => scrollToIndex(activeIndex.value, 'auto'))
       :class="{ active: entry.level.id === activeId }"
       :level="entry.level"
       :unlocked="entry.unlocked"
-      :stars="entry.stars"
       :completed="entry.cleared"
       @open="emit('open', entry.level.id)"
     />

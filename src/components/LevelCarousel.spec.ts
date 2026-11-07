@@ -178,15 +178,14 @@ describe('LevelCarousel', () => {
         hintsUsed: 0,
         elapsedSeconds: 12,
         completedAt: '2026-11-05T10:00:00.000Z',
-        stars: 3,
       },
     }
     const { wrapper } = mountCarousel({ records })
 
     const cards = wrapper.findAll('[data-level-id]')
     expect(cards.map((card) => card.attributes('data-level-id'))).toEqual(levels.map((level) => level.id))
-    expect(cards[0].text()).toContain('★★★')
     expect(cards[0].text()).toContain('已完成')
+    expect(cards[0].text()).not.toContain('★')
     expect(cards[1].attributes('aria-disabled')).toBeUndefined()
     expect(cards[cards.length - 1].attributes('aria-disabled')).toBe('true')
   })

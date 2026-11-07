@@ -32,7 +32,6 @@ function open(levelId: string): void {
   <div class="level-select-page">
     <div class="level-stats">
       <span class="stat">已完成 {{ summary.completed }}/{{ summary.total }}</span>
-      <span class="stat">星级 {{ summary.stars }}/{{ summary.maxStars }}</span>
     </div>
 
     <div class="category-chips" role="group" aria-label="分类筛选">

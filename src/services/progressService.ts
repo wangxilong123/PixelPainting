@@ -10,8 +10,6 @@ export type ProgressSnapshot = {
 export type LevelSummary = {
   total: number
   completed: number
-  stars: number
-  maxStars: number
 }
 
 const storage = useLocalStorage('pixel-painting:v1:progress')
@@ -28,12 +26,8 @@ function isCount(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0
 }
 
-function isRating(value: unknown): value is 1 | 2 | 3 {
-  return value === 1 || value === 2 || value === 3
-}
-
 function isLevelResult(value: unknown): value is LevelResult {
-  return isRecord(value) && isTimestamp(value.completedAt) && isRating(value.stars)
+  return isRecord(value) && isTimestamp(value.completedAt)
     && isCount(value.elapsedSeconds) && isCount(value.hintsUsed)
 }
 
@@ -66,12 +60,6 @@ export function isLevelComplete(level: Level, progress: LevelProgress): boolean 
   return total > 0
 }
 
-export function getStars(level: Level, progress: LevelProgress): 1 | 2 | 3 {
-  if (!isLevelComplete(level, progress)) return 1
-  if (progress.hintsUsed === 0) return 3
-  return progress.hintsUsed <= 2 ? 2 : 1
-}
-
 export function isLevelCleared(level: Level, attempt: LevelProgress | undefined): boolean {
   if (attempt?.levelId !== level.id) return false
   if (isLevelResult(attempt.bestResult)) return true
@@ -92,38 +80,31 @@ export function isLevelUnlocked(
 export function getLevelSummary(records: Record<string, LevelProgress>): LevelSummary {
   const levels = getLevels()
   let completed = 0
-  let stars = 0
   for (const level of levels) {
-    const record = records[level.id]
-    if (!isLevelCleared(level, record)) continue
+    if (!isLevelCleared(level, records[level.id])) continue
     completed += 1
-    stars += record?.bestResult?.stars ?? record?.stars ?? 0
   }
-  return { total: levels.length, completed, stars, maxStars: levels.length * 3 }
+  return { total: levels.length, completed }
 }
 
 function parseLevelProgress(level: Level, value: unknown): LevelProgress | undefined {
   if (!isRecord(value) || value.levelId !== level.id) return
 
-  const { painted, elapsedSeconds, hintsUsed, startedAt, completedAt, stars, viewport, bestResult } = value
+  // 旧存档可能还带着已废弃的 stars 字段，忽略即可，不要因此拒收整条记录
+  const { painted, elapsedSeconds, hintsUsed, startedAt, completedAt, viewport, bestResult } = value
   if (!Array.isArray(painted) || painted.length !== level.cells.length
     || !painted.every((color, index) => color === 0 || color === level.cells[index])) return
   if (!isCount(elapsedSeconds) || !isCount(hintsUsed)) return
   if (startedAt !== undefined && !isTimestamp(startedAt)) return
   if (completedAt !== undefined && !isTimestamp(completedAt)) return
-  if (stars !== undefined && !isRating(stars)) return
   if (viewport !== undefined && !isLevelViewport(viewport)) return
   if (bestResult !== undefined && !isLevelResult(bestResult)) return
 
   const progress: LevelProgress = { levelId: level.id, painted, elapsedSeconds, hintsUsed }
-  const isComplete = isLevelComplete(level, progress)
-  if (isComplete !== (completedAt !== undefined) || (!isComplete && stars !== undefined)) return
+  if (isLevelComplete(level, progress) !== (completedAt !== undefined)) return
 
   if (startedAt !== undefined) progress.startedAt = startedAt
-  if (completedAt !== undefined) {
-    progress.completedAt = completedAt
-    progress.stars = stars ?? getStars(level, progress)
-  }
+  if (completedAt !== undefined) progress.completedAt = completedAt
   if (viewport !== undefined) progress.viewport = viewport
   if (bestResult !== undefined) progress.bestResult = bestResult
   return progress

@@ -32,7 +32,6 @@ export type LevelViewport = {
 
 export type LevelResult = {
   completedAt: string
-  stars: 1 | 2 | 3
   elapsedSeconds: number
   hintsUsed: number
 }
@@ -45,7 +44,6 @@ export type LevelProgress = {
   completedAt?: string
   hintsUsed: number
   elapsedSeconds: number
-  stars?: 1 | 2 | 3
   viewport?: LevelViewport
   bestResult?: LevelResult
 }

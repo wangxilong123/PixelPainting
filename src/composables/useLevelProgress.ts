@@ -3,7 +3,6 @@ import type { Level, LevelProgress, LevelResult, LevelViewport } from '../models
 import { getLevelById, getLevels } from '../services/levelService'
 import {
   createEmptyProgress,
-  getStars,
   isLevelComplete,
   isLevelUnlocked,
   isLevelViewport,
@@ -25,7 +24,6 @@ function restoreProgress(): ProgressSnapshot {
 }
 
 function isBetterResult(result: LevelResult, best: LevelResult): boolean {
-  if (result.stars !== best.stars) return result.stars > best.stars
   if (result.elapsedSeconds !== best.elapsedSeconds) {
     return result.elapsedSeconds < best.elapsedSeconds
   }
@@ -51,12 +49,10 @@ export function useLevelProgress() {
 
     const result: LevelResult = {
       completedAt: new Date().toISOString(),
-      stars: getStars(level, progress),
       elapsedSeconds: progress.elapsedSeconds,
       hintsUsed: progress.hintsUsed,
     }
     progress.completedAt = result.completedAt
-    progress.stars = result.stars
     if (!progress.bestResult || isBetterResult(result, progress.bestResult)) {
       progress.bestResult = result
     }
@@ -180,7 +176,6 @@ export function useLevelProgress() {
     } else if (progress.completedAt) {
       restarted.bestResult = {
         completedAt: progress.completedAt,
-        stars: progress.stars ?? getStars(level, progress),
         elapsedSeconds: progress.elapsedSeconds,
         hintsUsed: progress.hintsUsed,
       }

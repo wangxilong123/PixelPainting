@@ -5,7 +5,6 @@ import PixelPreview from './PixelPreview.vue'
 
 const props = defineProps<{
   open: boolean
-  stars: 1 | 2 | 3
   elapsedSeconds: number
   hintsUsed: number
   nextLevelId?: string
@@ -26,7 +25,6 @@ const time = computed(() => {
     <div role="dialog" aria-modal="true" aria-label="关卡结算" class="completion-dialog">
       <h2>关卡完成！</h2>
       <PixelPreview v-if="level" class="dialog-preview" :level="level" />
-      <p class="dialog-stars" aria-label="本次星级">{{ '★'.repeat(stars) }}{{ '☆'.repeat(3 - stars) }}</p>
       <ul class="dialog-stats">
         <li>用时 {{ time }}</li>
         <li>提示 {{ hintsUsed }} 次</li>
@@ -65,15 +63,8 @@ const time = computed(() => {
   margin: var(--space-4) auto 0;
 }
 
-.dialog-stars {
-  margin: var(--space-4) 0;
-  color: var(--color-primary);
-  font-size: 1.6rem;
-  letter-spacing: 0.3rem;
-}
-
 .dialog-stats {
-  margin: 0 0 var(--space-6);
+  margin: var(--space-4) 0 var(--space-6);
   padding: 0;
   list-style: none;
   display: flex;

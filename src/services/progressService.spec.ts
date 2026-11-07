@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Level, LevelProgress } from '../models/level'
 import { getLevels } from './levelService'
-import { createEmptyProgress, getLevelSummary, getStars, isLevelComplete, isLevelUnlocked } from './progressService'
+import { createEmptyProgress, getLevelSummary, isLevelComplete, isLevelUnlocked } from './progressService'
 
 const sample: Level = {
   id: 'test-level',
@@ -20,7 +20,7 @@ const sample: Level = {
 const completedAt = '2026-11-04T12:00:00.000Z'
 
 function completedProgress(level: Level): LevelProgress {
-  return { ...createEmptyProgress(level), painted: [...level.cells], completedAt, stars: 3 }
+  return { ...createEmptyProgress(level), painted: [...level.cells], completedAt }
 }
 
 describe('progress rules', () => {
@@ -43,17 +43,6 @@ describe('progress rules', () => {
     expect(isLevelComplete({ ...sample, cells: Array(6).fill(0) }, partial)).toBe(false)
   })
 
-  it.each([[0, 3], [1, 2], [2, 2], [3, 1]])(
-    'awards %i hints the expected completed rating of %i',
-    (hintsUsed, stars) => {
-      expect(getStars(sample, { ...completedProgress(sample), hintsUsed })).toBe(stars)
-    },
-  )
-
-  it('returns one star for an unfinished attempt', () => {
-    expect(getStars(sample, createEmptyProgress(sample))).toBe(1)
-  })
-
   it('unlocks only levels whose predecessors are all complete', () => {
     const levels = getLevels()
     const [first, second, third] = levels
@@ -72,7 +61,7 @@ describe('progress rules', () => {
   it('keeps the next level unlocked during a replay', () => {
     const levels = getLevels()
     const [first, second] = levels
-    const bestResult = { completedAt, stars: 3 as const, elapsedSeconds: 20, hintsUsed: 0 }
+    const bestResult = { completedAt, elapsedSeconds: 20, hintsUsed: 0 }
     const replay = { ...createEmptyProgress(first), bestResult }
     expect(isLevelUnlocked(levels, { [first.id]: replay }, second.id)).toBe(true)
     expect(isLevelUnlocked(levels, {
@@ -82,14 +71,14 @@ describe('progress rules', () => {
 })
 
 describe('getLevelSummary', () => {
-  it('counts cleared levels and their best stars', () => {
+  it('counts cleared levels', () => {
     const levels = getLevels()
     const [first] = levels
     const total = levels.length
 
-    expect(getLevelSummary({})).toEqual({ total, completed: 0, stars: 0, maxStars: total * 3 })
+    expect(getLevelSummary({})).toEqual({ total, completed: 0 })
     expect(getLevelSummary({ [first.id]: { ...completedProgress(first), hintsUsed: 0 } }))
-      .toEqual({ total, completed: 1, stars: 3, maxStars: total * 3 })
+      .toEqual({ total, completed: 1 })
   })
 
   it('keeps a replayed level counted through its best result', () => {
@@ -97,11 +86,10 @@ describe('getLevelSummary', () => {
     const [first, second] = levels
     const replay: LevelProgress = {
       ...createEmptyProgress(first),
-      bestResult: { completedAt, stars: 2, elapsedSeconds: 19, hintsUsed: 1 },
+      bestResult: { completedAt, elapsedSeconds: 19, hintsUsed: 1 },
     }
 
-    expect(getLevelSummary({ [first.id]: replay }))
-      .toEqual({ total: levels.length, completed: 1, stars: 2, maxStars: levels.length * 3 })
+    expect(getLevelSummary({ [first.id]: replay })).toEqual({ total: levels.length, completed: 1 })
     expect(isLevelUnlocked(levels, { [first.id]: replay }, second.id)).toBe(true)
   })
 })
@@ -132,7 +120,7 @@ describe('local progress snapshots', () => {
     progress.painted[index] = first.cells[index]
     const done = {
       ...completedProgress(second),
-      bestResult: { completedAt, stars: 3 as const, elapsedSeconds: 0, hintsUsed: 0 },
+      bestResult: { completedAt, elapsedSeconds: 0, hintsUsed: 0 },
     }
     const snapshot = { currentLevelId: first.id, levels: { [first.id]: progress, [second.id]: done } }
 
@@ -175,11 +163,18 @@ describe('local progress snapshots', () => {
     },
   )
 
-  it('restores a completed record with a missing star rating', async () => {
+  it('ignores the star rating left over in an older save', async () => {
     const service = await import('./progressService')
-    const progress = { ...completedProgress(first), stars: undefined, hintsUsed: 2 }
-    service.saveProgress({ [first.id]: progress })
-    expect(service.loadProgress()[first.id]?.stars).toBe(2)
+    const expected: LevelProgress = {
+      ...completedProgress(first),
+      hintsUsed: 2,
+      bestResult: { completedAt, elapsedSeconds: 20, hintsUsed: 2 },
+    }
+    localStorage.setItem(key, JSON.stringify({
+      currentLevelId: null,
+      levels: { [first.id]: { ...expected, stars: 3 } },
+    }))
+    expect(service.loadProgress()[first.id]).toEqual(expected)
   })
 
   it.each(['access', 'read', 'write'] as const)(

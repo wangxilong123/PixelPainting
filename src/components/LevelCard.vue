@@ -7,7 +7,6 @@ import PixelPreview from './PixelPreview.vue'
 const props = defineProps<{
   level: Level
   unlocked: boolean
-  stars?: 1 | 2 | 3
   completed: boolean
 }>()
 
@@ -41,10 +40,7 @@ function activate(): void {
     </span>
     <span class="level-status">
       <span v-if="!unlocked" class="level-badge">锁定</span>
-      <template v-else-if="completed">
-        <span class="level-stars" aria-label="星级">{{ '★'.repeat(stars ?? 0) }}{{ '☆'.repeat(3 - (stars ?? 0)) }}</span>
-        <span class="level-badge done">已完成</span>
-      </template>
+      <span v-else-if="completed" class="level-badge done">已完成</span>
     </span>
   </button>
 </template>
@@ -122,11 +118,6 @@ function activate(): void {
 .level-meta {
   font-size: 0.8rem;
   color: var(--color-text-muted);
-}
-
-.level-stars {
-  color: var(--color-primary);
-  letter-spacing: 0.15rem;
 }
 
 .level-badge {

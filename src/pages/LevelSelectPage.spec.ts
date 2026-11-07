@@ -37,7 +37,7 @@ describe('LevelSelectPage', () => {
       expect(wrapper.findAll('.chip').map((chip) => chip.text()))
         .toEqual(['全部', '动物', '食物', '其他'])
       expect(wrapper.find('.level-stats').text()).toContain(`已完成 0/${levels.length}`)
-      expect(wrapper.find('.level-stats').text()).toContain(`星级 0/${levels.length * 3}`)
+      expect(wrapper.find('.level-stats').text()).not.toContain('星')
       expect(wrapper.find('.level-stats').text()).not.toContain(first.title)
 
       const cards = wrapper.findAll('[data-level-id]')
@@ -80,15 +80,14 @@ describe('LevelSelectPage', () => {
     }
   })
 
-  it('shows stars and completion after finishing a level and unlocks the next one', async () => {
+  it('shows completion after finishing a level and unlocks the next one', async () => {
     await completeFirstLevel()
     const { wrapper } = await mountPage()
     try {
       expect(wrapper.find('.level-stats').text()).toContain(`已完成 1/${levels.length}`)
-      expect(wrapper.find('.level-stats').text()).toContain(`星级 3/${levels.length * 3}`)
       const cards = wrapper.findAll('[data-level-id]')
-      expect(cards[0].text()).toContain('★★★')
       expect(cards[0].text()).toContain('已完成')
+      expect(cards[0].text()).not.toContain('★')
       expect(cards[1].attributes('aria-disabled')).toBeUndefined()
       expect(cards[cards.length - 1].attributes('aria-disabled')).toBe('true')
     } finally {

@@ -61,7 +61,6 @@ const progressPercent = computed(() =>
   total.value === 0 ? '0%' : `${Math.round((paintedCount.value / total.value) * 100)}%`,
 )
 const timeDisplay = computed(() => formatTime(elapsed.value))
-const resultStars = computed(() => currentProgress.value?.stars ?? 3)
 const resultElapsed = computed(() => currentProgress.value?.elapsedSeconds ?? 0)
 const resultHints = computed(() => currentProgress.value?.hintsUsed ?? 0)
 const nextLevelId = computed(() => (dialogOpen.value ? getNextLevelId() : undefined))
@@ -308,7 +307,6 @@ function backToList(): void {
 
     <CompletionDialog
       :open="dialogOpen"
-      :stars="resultStars"
       :elapsed-seconds="resultElapsed"
       :hints-used="resultHints"
       :next-level-id="nextLevelId"

@@ -91,8 +91,7 @@ async function seedCompleted(ids: string[]) {
       startedAt: completedAt,
       completedAt,
       elapsedSeconds: 42,
-      stars: 3,
-      bestResult: { completedAt, stars: 3, elapsedSeconds: 42, hintsUsed: 0 },
+      bestResult: { completedAt, elapsedSeconds: 42, hintsUsed: 0 },
     }
   }
   saveProgressSnapshot({ currentLevelId: null, levels: records })
@@ -328,7 +327,7 @@ describe('GamePage', () => {
 
       const dialogs = wrapper.findAll('[role="dialog"]')
       expect(dialogs).toHaveLength(1)
-      expect(dialogs[0].text()).toContain('★★★')
+      expect(dialogs[0].text()).not.toContain('★')
       expect(dialogs[0].text()).toContain('用时 00:19')
       expect(dialogs[0].text()).not.toContain('正确率')
       expect(dialogs[0].text()).toContain('提示 0 次')

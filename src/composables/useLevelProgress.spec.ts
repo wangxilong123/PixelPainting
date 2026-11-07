@@ -144,8 +144,7 @@ describe('useLevelProgress', () => {
     const done = progress.currentProgress.value
     expect(done).toMatchObject({
       completedAt: finishTime,
-      stars: 2,
-      bestResult: { completedAt: finishTime, stars: 2, elapsedSeconds: 19, hintsUsed: 1 },
+      bestResult: { completedAt: finishTime, elapsedSeconds: 19, hintsUsed: 1 },
     })
     const { loadProgress } = await import('../services/progressService')
     expect(loadProgress()[first.id]).toEqual(done)
@@ -185,13 +184,15 @@ describe('useLevelProgress', () => {
     progress.recordHint(firstColor)
     progress.setElapsedSeconds(10)
     finishLevel(progress, first)
-    expect(progress.currentProgress.value?.stars).toBe(2)
-    expect(progress.currentProgress.value?.bestResult).toEqual(best)
+    expect(progress.currentProgress.value?.hintsUsed).toBe(1)
+    // 去掉星级之后用时是首要指标，这次 10 秒比重玩前的 19 秒更好，成绩被替换
+    expect(progress.currentProgress.value?.bestResult)
+      .toMatchObject({ elapsedSeconds: 10, hintsUsed: 1 })
 
     progress.restartLevel()
-    progress.setElapsedSeconds(15)
+    progress.setElapsedSeconds(8)
     finishLevel(progress, first)
-    expect(progress.currentProgress.value?.bestResult?.elapsedSeconds).toBe(15)
+    expect(progress.currentProgress.value?.bestResult?.elapsedSeconds).toBe(8)
   })
 
   it('keeps the result of a restored completed attempt that has no best result yet', async () => {
@@ -204,14 +205,13 @@ describe('useLevelProgress', () => {
           painted: [...first.cells],
           completedAt: finishTime,
           elapsedSeconds: 19,
-          stars: 3,
         },
       },
     })
     const progress = await session()
     progress.restartLevel()
     expect(progress.currentProgress.value?.bestResult).toEqual({
-      completedAt: finishTime, stars: 3, elapsedSeconds: 19, hintsUsed: 0,
+      completedAt: finishTime, elapsedSeconds: 19, hintsUsed: 0,
     })
     expect(progress.getNextLevelId()).toBe(second.id)
   })
@@ -285,7 +285,7 @@ describe('useLevelProgress', () => {
     progress.openLevel(first.id)
     finishLevel(progress, first)
     const best = progress.currentProgress.value?.bestResult
-    expect(best).toMatchObject({ stars: 3, elapsedSeconds: 0, hintsUsed: 0 })
+    expect(best).toMatchObject({ elapsedSeconds: 0, hintsUsed: 0 })
 
     progress.restartLevel()
     progress.recordHint(firstColor)
@@ -301,7 +301,7 @@ describe('useLevelProgress', () => {
 
     vi.setSystemTime(new Date(finishTime))
     expect(progress.repaintCell(xIndex, xColor)).toBe(true)
-    expect(progress.currentProgress.value).toMatchObject({ completedAt: finishTime, stars: 2 })
+    expect(progress.currentProgress.value).toMatchObject({ completedAt: finishTime, hintsUsed: 1 })
     expect(progress.currentProgress.value?.bestResult).toEqual(best)
   })
 
