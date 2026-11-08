@@ -164,11 +164,12 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
         context.strokeStyle = '#64647d'
         context.strokeRect(x, y, cellSize, cellSize)
 
-        // 两位数用更小字号，缩得太小时直接不画，避免糊成一片
+        // 编号按屏幕恒定字号：缩小时不再糊到隐藏，放大时也不超过格子留边
         const fontPx = labelFont(target)
-        if (view.scale * fontPx >= minLabelPixels) {
+        const screenFont = Math.min(Math.max(fontPx * view.scale, fontPx), cellSize * view.scale - 4)
+        if (screenFont >= minLabelPixels) {
           context.fillStyle = '#292941'
-          context.font = `${fontPx}px system-ui, sans-serif`
+          context.font = `${screenFont / view.scale}px system-ui, sans-serif`
           context.fillText(String(target), x + cellSize / 2, y + cellSize / 2, cellSize - 4)
         }
         if (target === selectedColor) highlight(x, y, '#526dca', 1, view.scale)

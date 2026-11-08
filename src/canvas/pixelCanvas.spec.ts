@@ -220,7 +220,7 @@ describe('pixel canvas drawing and hit testing', () => {
     view.controller.destroy()
   })
 
-  it('shrinks two-digit numbers and drops them below the legible zoom', () => {
+  it('shrinks two-digit numbers and keeps them legible at low zoom', () => {
     const wide: Level = {
       ...level,
       palette: [
@@ -240,10 +240,18 @@ describe('pixel canvas drawing and hit testing', () => {
       '9px system-ui, sans-serif',
     ])
 
+    // 缩到 0.5 时格子只有 12 屏幕像素，编号按屏幕恒定 8px 画（世界字号 16），不再隐藏
     view.context.fillText.mockClear()
+    view.fonts.length = 0
     view.controller.setViewport({ scale: 0.5, offsetX: 0, offsetY: 0 })
     view.draw()
-    expect(view.context.fillText.mock.calls.map(([text]) => text)).toEqual(['3', '3'])
+    expect(view.context.fillText.mock.calls.map(([text]) => text)).toEqual(['3', '12', '3', '12'])
+    expect(view.fonts).toEqual([
+      '16px system-ui, sans-serif',
+      '16px system-ui, sans-serif',
+      '16px system-ui, sans-serif',
+      '16px system-ui, sans-serif',
+    ])
     view.controller.destroy()
   })
 
