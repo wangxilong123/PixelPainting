@@ -1,10 +1,16 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory } from 'vue-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getLevels } from '../services/levelService'
+import { normalizeCategory } from '../data/categories'
+import { getCategories, getLevels } from '../services/levelService'
 
 const levels = getLevels()
+const categories = getCategories()
 const [first, second] = levels
+
+function levelsIn(categoryId: string) {
+  return levels.filter((level) => normalizeCategory(level.category).id === categoryId)
+}
 
 beforeEach(() => {
   localStorage.clear()
@@ -35,7 +41,7 @@ describe('LevelSelectPage', () => {
     const { wrapper } = await mountPage()
     try {
       expect(wrapper.findAll('.chip').map((chip) => chip.text()))
-        .toEqual(['全部', '动物', '食物', '其他'])
+        .toEqual(['全部', ...categories.map((category) => category.label)])
       expect(wrapper.find('.level-stats').text()).toContain(`已完成 0/${levels.length}`)
       expect(wrapper.find('.level-stats').text()).not.toContain('星')
       expect(wrapper.find('.level-stats').text()).not.toContain(first.title)
@@ -57,9 +63,11 @@ describe('LevelSelectPage', () => {
     const { wrapper } = await mountPage()
     try {
       const chips = wrapper.findAll('.chip')
-      await chips[2].trigger('click')
-      expect(wrapper.findAll('[data-level-id]').map((card) => card.attributes('data-level-id')))
-        .toEqual([second.id])
+      for (const [index, category] of categories.entries()) {
+        await chips[index + 1].trigger('click')
+        expect(wrapper.findAll('[data-level-id]').map((card) => card.attributes('data-level-id')))
+          .toEqual(levelsIn(category.id).map((level) => level.id))
+      }
 
       await chips[0].trigger('click')
       expect(wrapper.findAll('[data-level-id]')).toHaveLength(levels.length)
@@ -72,9 +80,9 @@ describe('LevelSelectPage', () => {
     await completeFirstLevel()
     const { wrapper } = await mountPage()
     try {
-      await wrapper.findAll('.chip')[2].trigger('click')
+      await wrapper.findAll('.chip')[1].trigger('click')
       expect(wrapper.find('.level-stats').text()).toContain(`已完成 1/${levels.length}`)
-      expect(wrapper.findAll('[data-level-id]')).toHaveLength(1)
+      expect(wrapper.findAll('[data-level-id]')).toHaveLength(levelsIn(categories[0].id).length)
     } finally {
       wrapper.unmount()
     }
