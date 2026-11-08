@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 把所有者投放的像素 PNG 转成关卡文件，并重建 src/data/levels/index.ts。
 // 只导入没有相对依赖的模块：Node 不解析省略扩展名的相对导入，levelService 那条链走不通。
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { copyFileSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PNG } from 'pngjs'
@@ -14,7 +14,7 @@ const alphaThreshold = 128
 
 const usage = `用法：node scripts/convert-level.mjs <png> --title <名称> --category <分类> --difficulty <1|2|3>
       [--id <关卡ID>] [--order <序号>] [--tags <a,b>] [--name <#RRGGBB=名称>]...
-      [--max-colors <n>] [--out src/data/levels] [--dry-run]
+      [--thumbnail <透明底PNG>] [--max-colors <n>] [--out src/data/levels] [--dry-run]
 分类可选值：${levelCategories.map((entry) => entry.id).join('、')}`
 
 function quote(value) {
@@ -40,6 +40,7 @@ function parseArguments(argv) {
       id: { type: 'string' },
       order: { type: 'string' },
       tags: { type: 'string' },
+      thumbnail: { type: 'string' },
       out: { type: 'string', default: 'src/data/levels' },
       'max-colors': { type: 'string' },
       name: { type: 'string', multiple: true },
@@ -74,6 +75,7 @@ function parseArguments(argv) {
     pngPath: positionals[0],
     outDir: resolve(values.out),
     dryRun: values['dry-run'],
+    thumbnail: values.thumbnail,
     maxColors: values['max-colors'] === undefined ? undefined : Number(values['max-colors']),
     meta: {
       id,
@@ -120,7 +122,23 @@ function readSource(pngPath) {
   return { width, height, data: Uint8ClampedArray.from(data) }
 }
 
-function renderLevelFile(level) {
+// 缩略图只要求四角透明：卡片预览是透明底，带背景色的图会露出一块方框
+function validateThumbnail(pngPath) {
+  let png
+  try {
+    png = PNG.sync.read(readFileSync(pngPath))
+  } catch (error) {
+    fail(`缩略图 PNG 解码失败：${error.message}`)
+  }
+  const { width, height, data } = png
+  const corners = [0, width - 1, (height - 1) * width, height * width - 1]
+  for (const index of corners) {
+    if (data[index * 4 + 3] >= alphaThreshold) fail(`缩略图 ${pngPath} 四角必须透明，当前带背景色`)
+  }
+  return { width, height }
+}
+
+function renderLevelFile(level, thumbnail) {
   const fields = [
     `  id: ${quote(level.id)},`,
     `  title: ${quote(level.title)},`,
@@ -132,6 +150,7 @@ function renderLevelFile(level) {
   if (level.order !== undefined) fields.push(`  order: ${level.order},`)
   if (level.tags !== undefined) fields.push(`  tags: [${level.tags.map(quote).join(', ')}],`)
   fields.push(`  source: ${quote(level.source)},`)
+  if (thumbnail) fields.push(`  thumbnail: ${exportName(level.id)}Thumbnail,`)
   fields.push('  palette: [')
   for (const color of level.palette) {
     fields.push(`    { id: ${color.id}, hex: ${quote(color.hex)}, name: ${quote(color.name)} },`)
@@ -144,7 +163,11 @@ function renderLevelFile(level) {
   }
   fields.push('  ],')
 
-  return `import type { Level } from '../../models/level'
+  const header = thumbnail
+    ? `import ${exportName(level.id)}Thumbnail from './${level.id}.png'\nimport type { Level } from '../../models/level'`
+    : `import type { Level } from '../../models/level'`
+
+  return `${header}
 
 export const ${exportName(level.id)}: Level = {
 ${fields.join('\n')}
@@ -173,6 +196,7 @@ function main() {
   const options = parseArguments(process.argv.slice(2))
   const source = readSource(options.pngPath)
   const level = imageToLevel(source, { ...options.meta, maxColors: options.maxColors })
+  const thumbnail = options.thumbnail ? validateThumbnail(options.thumbnail) : undefined
 
   if (level.palette.length > colorWarningThreshold) {
     console.warn(`提示：这张图有 ${level.palette.length} 种颜色，编号会缩到 9px，考虑减色后再投`)
@@ -180,17 +204,21 @@ function main() {
 
   const interactive = level.cells.filter((color) => color !== 0).length
   const levelPath = join(options.outDir, `${level.id}.ts`)
-  const body = renderLevelFile(level)
+  const body = renderLevelFile(level, thumbnail)
 
   if (options.dryRun) {
     console.log(body)
   } else {
     writeFileSync(levelPath, body, 'utf8')
     writeFileSync(join(options.outDir, 'index.ts'), renderIndex(options.outDir), 'utf8')
+    if (thumbnail) copyFileSync(options.thumbnail, join(options.outDir, `${level.id}.png`))
   }
 
   console.log(`${options.dryRun ? '试跑' : '已写入'} ${level.id} ${level.title}`)
   console.log(`尺寸 ${level.width}×${level.height}，可交互格 ${interactive}，颜色 ${level.palette.length} 种`)
+  if (thumbnail) {
+    console.log(`缩略图 ${thumbnail.width}×${thumbnail.height}${options.dryRun ? '（试跑不写文件）' : ''}`)
+  }
   if (!options.dryRun) console.log(`文件 ${levelPath}`)
   console.log('接下来跑 npm run test:unit 和 npm run build，再目视核对图案')
 }
