@@ -7,7 +7,7 @@ export const level004: Level = {
   difficulty: 3,
   width: 32,
   height: 32,
-  order: 7,
+  order: 4,
   tags: ['马', '原创'],
   source: 'preset',
   palette: [
