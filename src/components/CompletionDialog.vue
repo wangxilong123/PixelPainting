@@ -24,7 +24,13 @@ const time = computed(() => {
   <div v-if="open" class="dialog-backdrop">
     <div role="dialog" aria-modal="true" aria-label="关卡结算" class="completion-dialog">
       <h2>关卡完成！</h2>
-      <PixelPreview v-if="level" class="dialog-preview" :level="level" />
+      <img
+        v-if="level?.thumbnail"
+        class="dialog-preview"
+        :src="level.thumbnail"
+        :alt="`${level.title} 完成图`"
+      />
+      <PixelPreview v-else-if="level" class="dialog-preview" :level="level" />
       <ul class="dialog-stats">
         <li>用时 {{ time }}</li>
         <li>提示 {{ hintsUsed }} 次</li>
@@ -59,8 +65,14 @@ const time = computed(() => {
 }
 
 .dialog-preview {
-  width: min(12rem, 100%);
+  width: min(20rem, 100%);
   margin: var(--space-4) auto 0;
+}
+
+/* 缩略图按原画比例显示；DOM 格子预览靠 aspect-ratio 撑高，不能套 max-height */
+img.dialog-preview {
+  max-height: 20rem;
+  object-fit: contain;
 }
 
 .dialog-stats {
