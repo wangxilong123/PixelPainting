@@ -158,10 +158,11 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
           ? palette.get(target) ?? emptyFill
           : emptyFills.get(target) ?? emptyFill
         context.fillRect(x, y, cellSize, cellSize)
+        // 涂满的格子不再描边，成品是一整块干净的画；网格线只留在没涂的格子上
+        if (filled) continue
         context.lineWidth = 1 / view.scale
         context.strokeStyle = '#64647d'
         context.strokeRect(x, y, cellSize, cellSize)
-        if (filled) continue
 
         // 两位数用更小字号，缩得太小时直接不画，避免糊成一片
         const fontPx = labelFont(target)
