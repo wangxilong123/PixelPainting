@@ -73,6 +73,8 @@ const time = computed(() => {
 img.dialog-preview {
   max-height: 20rem;
   object-fit: contain;
+  /* 缩略图就是关卡格子图，放大要看到硬边像素，和涂色画面一致 */
+  image-rendering: pixelated;
 }
 
 .dialog-stats {

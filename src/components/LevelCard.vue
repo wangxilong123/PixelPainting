@@ -103,6 +103,11 @@ function activate(): void {
   height: 100%;
 }
 
+/* 缩略图就是关卡格子图，放大要看到硬边像素，和涂色画面一致 */
+img.level-preview {
+  image-rendering: pixelated;
+}
+
 .level-status {
   display: flex;
   align-items: center;
