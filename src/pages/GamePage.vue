@@ -5,11 +5,12 @@ import type { PaintResult } from '../canvas/pixelCanvas'
 import ColorPalette from '../components/ColorPalette.vue'
 import CompletionDialog from '../components/CompletionDialog.vue'
 import GameSettings from '../components/GameSettings.vue'
+import PartPicker from '../components/PartPicker.vue'
 import PixelCanvas from '../components/PixelCanvas.vue'
 import { useGameSettings } from '../composables/useGameSettings'
 import { useLevelProgress } from '../composables/useLevelProgress'
 import { playPaintSound } from '../services/audioService'
-import { getLevelById, getInteractiveCellCount } from '../services/levelService'
+import { getLevelById, getInteractiveCellCount, getPartRects } from '../services/levelService'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,6 +23,7 @@ const {
   recordHint,
   setElapsedSeconds,
   setViewport,
+  setPartIndex,
   restartLevel,
   getNextLevelId,
 } = useLevelProgress()
@@ -57,6 +59,12 @@ const isCompleted = computed(() => currentProgress.value?.completedAt !== undefi
 const canUndo = computed(() => history.value.length > 0 && !isCompleted.value)
 const canRedo = computed(() => redoStack.value.length > 0 && !isCompleted.value)
 const total = computed(() => (level.value ? getInteractiveCellCount(level.value) : 0))
+const partRects = computed(() => (level.value ? getPartRects(level.value) : []))
+const partIndex = computed(() => currentProgress.value?.partIndex ?? 0)
+// 不分块的关卡传 null，画布走整图那条路，行为和分块之前完全一致
+const currentPart = computed(() =>
+  partRects.value.length > 1 ? partRects.value[partIndex.value] ?? null : null,
+)
 const progressPercent = computed(() =>
   total.value === 0 ? '0%' : `${Math.round((paintedCount.value / total.value) * 100)}%`,
 )
@@ -180,12 +188,20 @@ function onCompleted(): void {
   dialogOpen.value = true
 }
 
+function selectPart(index: number): void {
+  if (index === partIndex.value) return
+  hintIndex.value = null
+  setPartIndex(index)
+}
+
 function useHint(): void {
+  const before = partIndex.value
   const index = recordHint(selectedColorId.value)
   if (index === undefined) return
   hintIndex.value = index
-  // 直接调画布而不是靠 hintIndex 的 watch，重复点提示时同一格也要重新居中
-  canvasRef.value?.centerOnCell(index)
+  // 提示把玩家带到了别的块时整块本来就适配可见，不用再居中；
+  // 同块内才直接调画布，重复点提示时同一格也要重新居中
+  if (partIndex.value === before) canvasRef.value?.centerOnCell(index)
 }
 
 function undo(): void {
@@ -277,11 +293,20 @@ function backToList(): void {
       :selected-color-id="selectedColorId"
       :viewport="currentProgress.viewport"
       :hint-index="hintIndex"
+      :part="currentPart"
       :auto-fit="true"
       @paint="onPaint"
       @progress="onProgress"
       @completed="onCompleted"
       @viewport-change="setViewport"
+    />
+
+    <PartPicker
+      :level="level"
+      :parts="partRects"
+      :painted="currentProgress.painted"
+      :part-index="partIndex"
+      @select="selectPart"
     />
 
     <div class="game-controls">

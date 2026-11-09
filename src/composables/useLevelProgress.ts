@@ -1,6 +1,6 @@
 import { computed, readonly, shallowRef, type ShallowRef } from 'vue'
 import type { Level, LevelProgress, LevelResult, LevelViewport } from '../models/level'
-import { getLevelById, getLevels, getPartRects } from '../services/levelService'
+import { getLevelById, getLevels, getPartRects, type PartRect } from '../services/levelService'
 import {
   createEmptyProgress,
   isLevelComplete,
@@ -28,6 +28,21 @@ function isBetterResult(result: LevelResult, best: LevelResult): boolean {
     return result.elapsedSeconds < best.elapsedSeconds
   }
   return result.hintsUsed < best.hintsUsed
+}
+
+function findHintCell(
+  level: Level,
+  rect: PartRect,
+  colorId: number,
+  painted: readonly number[],
+): number {
+  for (let row = rect.y; row < rect.y + rect.height; row += 1) {
+    for (let column = rect.x; column < rect.x + rect.width; column += 1) {
+      const index = row * level.width + column
+      if (level.cells[index] === colorId && painted[index] === 0) return index
+    }
+  }
+  return -1
 }
 
 export function useLevelProgress() {
@@ -138,15 +153,20 @@ export function useLevelProgress() {
     const progress = attempt.value
     if (!level || !progress || progress.completedAt || colorId === null) return
 
-    // 只挑当前选中色的未涂格，玩家照着提示就能直接涂；
-    // 涂完的颜色在调色板里已经禁用，所以这里不需要回退到别的颜色
-    const index = level.cells.findIndex(
-      (color, i) => color === colorId && progress.painted[i] === 0,
-    )
-    if (index === -1) return
+    // 只挑当前选中色的未涂格，而且必须在玩家正看着的那一块里，否则提示指向看不见的格子；
+    // 这块没有该色的空格才顺延到别的块并跟着切过去，避免提示按钮点了没反应
+    const rects = getPartRects(level)
+    const current = progress.partIndex ?? 0
+    for (let offset = 0; offset < rects.length; offset += 1) {
+      const index = (current + offset) % rects.length
+      const cell = findHintCell(level, rects[index], colorId, progress.painted)
+      if (cell === -1) continue
 
-    saveAttempt({ ...progress, hintsUsed: progress.hintsUsed + 1 })
-    return index
+      const updated: LevelProgress = { ...progress, hintsUsed: progress.hintsUsed + 1 }
+      if (index !== current) updated.partIndex = index
+      saveAttempt(updated)
+      return cell
+    }
   }
 
   function setElapsedSeconds(seconds: number): void {
