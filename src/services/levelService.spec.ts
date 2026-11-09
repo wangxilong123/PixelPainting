@@ -247,6 +247,7 @@ describe('preset levels', () => {
     expect(getCategories()).toEqual([
       { id: 'animal', label: '动物' },
       { id: 'food', label: '食物' },
+      { id: 'tech', label: '科技' },
       { id: 'other', label: '其他' },
     ])
   })
