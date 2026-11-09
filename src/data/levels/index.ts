@@ -5,5 +5,6 @@ import { level003 } from './level-003'
 import { level005 } from './level-005'
 import { level006 } from './level-006'
 import { level007 } from './level-007'
+import { level008 } from './level-008'
 
-export const presetLevels: readonly Level[] = [level001, level002, level003, level005, level006, level007]
+export const presetLevels: readonly Level[] = [level001, level002, level003, level005, level006, level007, level008]
