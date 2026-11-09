@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { execFileSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -53,15 +53,8 @@ function framed(width, height, inner = (x) => (x % 2 === 0 ? red : green)) {
 }
 
 function run(args) {
-  try {
-    const stdout = execFileSync(process.execPath, [scriptPath, ...args], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    return { code: 0, output: stdout }
-  } catch (error) {
-    return { code: error.status ?? 1, output: `${error.stdout ?? ''}${error.stderr ?? ''}` }
-  }
+  const result = spawnSync(process.execPath, [scriptPath, ...args], { encoding: 'utf8' })
+  return { code: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}` }
 }
 
 function convert(pngPath, out, extra = []) {
