@@ -1,6 +1,6 @@
 import { useLocalStorage } from '../composables/useLocalStorage'
 import type { Level, LevelProgress, LevelResult, LevelViewport } from '../models/level'
-import { getLevelById, getLevels } from './levelService'
+import { getLevelById, getLevels, getPartRects } from './levelService'
 
 export type ProgressSnapshot = {
   currentLevelId: string | null
@@ -91,7 +91,9 @@ function parseLevelProgress(level: Level, value: unknown): LevelProgress | undef
   if (!isRecord(value) || value.levelId !== level.id) return
 
   // 旧存档可能还带着已废弃的 stars 字段，忽略即可，不要因此拒收整条记录
-  const { painted, elapsedSeconds, hintsUsed, startedAt, completedAt, viewport, bestResult } = value
+  const {
+    painted, elapsedSeconds, hintsUsed, startedAt, completedAt, viewport, bestResult, partIndex,
+  } = value
   if (!Array.isArray(painted) || painted.length !== level.cells.length
     || !painted.every((color, index) => color === 0 || color === level.cells[index])) return
   if (!isCount(elapsedSeconds) || !isCount(hintsUsed)) return
@@ -107,6 +109,8 @@ function parseLevelProgress(level: Level, value: unknown): LevelProgress | undef
   if (completedAt !== undefined) progress.completedAt = completedAt
   if (viewport !== undefined) progress.viewport = viewport
   if (bestResult !== undefined) progress.bestResult = bestResult
+  // 重转关卡会改分块数，越界的块号只丢字段，不能连累已涂进度
+  if (isCount(partIndex) && partIndex < getPartRects(level).length) progress.partIndex = partIndex
   return progress
 }
 

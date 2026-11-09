@@ -177,6 +177,47 @@ describe('local progress snapshots', () => {
     expect(service.loadProgress()[first.id]).toEqual(expected)
   })
 
+  it('keeps the save and the completion rules of an unchunked level unchanged', async () => {
+    const service = await import('./progressService')
+    const progress: LevelProgress = { ...createEmptyProgress(first), partIndex: 0 }
+    service.saveProgressSnapshot({ currentLevelId: first.id, levels: { [first.id]: progress } })
+
+    expect(createEmptyProgress(first)).not.toHaveProperty('partIndex')
+    expect(service.loadProgressSnapshot()).toEqual({
+      currentLevelId: first.id,
+      levels: { [first.id]: progress },
+    })
+    expect(isLevelComplete(first, progress)).toBe(false)
+    expect(isLevelComplete(first, completedProgress(first))).toBe(true)
+  })
+
+  it('drops a part index that no longer fits without touching the painted cells', async () => {
+    const chunked: Level = { ...first, id: 'chunked-level', parts: { cols: 3, rows: 3 } }
+    vi.doMock('./levelService', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('./levelService')>()
+      return {
+        ...actual,
+        getLevelById: (id: string) => (id === chunked.id ? chunked : actual.getLevelById(id)),
+      }
+    })
+    const service = await import('./progressService')
+    const base: LevelProgress = { ...createEmptyProgress(chunked), startedAt: completedAt }
+    const index = chunked.cells.findIndex((color) => color !== 0)
+    base.painted[index] = chunked.cells[index]
+    const write = (partIndex: number) => localStorage.setItem(key, JSON.stringify({
+      currentLevelId: chunked.id,
+      levels: { [chunked.id]: { ...base, partIndex } },
+    }))
+
+    write(4)
+    expect(service.loadProgress()[chunked.id]).toEqual({ ...base, partIndex: 4 })
+    write(9)
+    expect(service.loadProgress()[chunked.id]).toEqual(base)
+    write(-1)
+    expect(service.loadProgress()[chunked.id]).toEqual(base)
+    vi.doUnmock('./levelService')
+  })
+
   it.each(['access', 'read', 'write'] as const)(
     'retains the latest progress when storage %s fails',
     async (failure) => {

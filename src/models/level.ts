@@ -7,6 +7,11 @@ export type PaletteColor = {
   name: string
 }
 
+export type LevelParts = {
+  cols: number
+  rows: number
+}
+
 export type Level = {
   id: string
   title: string
@@ -17,6 +22,8 @@ export type Level = {
   palette: PaletteColor[]
   /** Row-major color IDs. Zero marks an empty cell. */
   cells: number[]
+  /** Chunked painting over the whole grid. Only 2×2 and 3×3 count; anything else is one part. */
+  parts?: LevelParts
   thumbnail?: string
   /** Unlock position. Levels without one keep registration order at the end. */
   order?: number
@@ -45,5 +52,7 @@ export type LevelProgress = {
   hintsUsed: number
   elapsedSeconds: number
   viewport?: LevelViewport
+  /** Part the player is looking at. Absent means the first one. */
+  partIndex?: number
   bestResult?: LevelResult
 }

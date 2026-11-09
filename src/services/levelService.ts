@@ -1,6 +1,16 @@
 import { levelCategories, normalizeCategory, type LevelCategoryEntry } from '../data/categories'
 import { presetLevels } from '../data/levels'
-import type { Level } from '../models/level'
+import type { Level, LevelParts } from '../models/level'
+
+export type PartRect = {
+  index: number
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+const partCounts = new Set([2, 3])
 
 const levelIds = new Set<string>()
 for (const level of presetLevels) {
@@ -76,4 +86,58 @@ export function validateLevel(level: Level): void {
 
 export function getInteractiveCellCount(level: Level): number {
   return level.cells.filter((colorId) => colorId !== 0).length
+}
+
+export function normalizeParts(level: Level): LevelParts {
+  const { cols, rows } = level.parts ?? { cols: 1, rows: 1 }
+  if (cols !== rows || !partCounts.has(cols)) return { cols: 1, rows: 1 }
+  return { cols, rows }
+}
+
+function splitAxis(total: number, count: number): number[] {
+  const base = Math.floor(total / count)
+  const remainder = total % count
+  return Array.from({ length: count }, (_, index) => base + (index < remainder ? 1 : 0))
+}
+
+function axisPart(sizes: number[], position: number): number {
+  let offset = 0
+  for (const [index, size] of sizes.entries()) {
+    offset += size
+    if (position < offset) return index
+  }
+  return sizes.length - 1
+}
+
+export function getPartRects(level: Level): PartRect[] {
+  const { cols, rows } = normalizeParts(level)
+  const widths = splitAxis(level.width, cols)
+  const heights = splitAxis(level.height, rows)
+  const rects: PartRect[] = []
+
+  let y = 0
+  for (let row = 0; row < rows; row += 1) {
+    let x = 0
+    for (let column = 0; column < cols; column += 1) {
+      rects.push({
+        index: row * cols + column,
+        x,
+        y,
+        width: widths[column],
+        height: heights[row],
+      })
+      x += widths[column]
+    }
+    y += heights[row]
+  }
+  return rects
+}
+
+export function getPartIndex(level: Level, cellIndex: number): number {
+  if (!Number.isInteger(cellIndex) || cellIndex < 0 || cellIndex >= level.cells.length) return -1
+
+  const { cols, rows } = normalizeParts(level)
+  const column = axisPart(splitAxis(level.width, cols), cellIndex % level.width)
+  const row = axisPart(splitAxis(level.height, rows), Math.floor(cellIndex / level.width))
+  return row * cols + column
 }

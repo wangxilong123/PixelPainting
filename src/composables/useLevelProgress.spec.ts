@@ -133,6 +133,31 @@ describe('useLevelProgress', () => {
     expect(restored.currentProgress.value).toEqual(progress.currentProgress.value)
   })
 
+  it('rejects part indexes outside the level and keeps the viewed part across a reload', async () => {
+    const progress = await session()
+    progress.openLevel(first.id)
+    progress.paintCell(...firstTarget(first))
+    const before = progress.currentProgress.value
+
+    progress.setPartIndex(1)
+    progress.setPartIndex(-1)
+    progress.setPartIndex(0.5)
+    progress.setPartIndex(Number.NaN)
+    expect(progress.currentProgress.value).toEqual(before)
+
+    progress.setPartIndex(0)
+    expect(progress.currentProgress.value).toEqual({ ...before, partIndex: 0 })
+
+    vi.resetModules()
+    const restored = await session()
+    expect(restored.openLevel(first.id)).toBe(true)
+    expect(restored.currentProgress.value?.partIndex).toBe(0)
+
+    restored.restartLevel()
+    expect(restored.currentProgress.value?.partIndex).toBeUndefined()
+    expect(restored.currentProgress.value?.painted).toEqual(first.cells.map(() => 0))
+  })
+
   it('settles the last cell once and immediately unlocks the next level', async () => {
     const progress = await session()
     progress.openLevel(first.id)

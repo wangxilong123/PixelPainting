@@ -1,6 +1,6 @@
 import { computed, readonly, shallowRef, type ShallowRef } from 'vue'
 import type { Level, LevelProgress, LevelResult, LevelViewport } from '../models/level'
-import { getLevelById, getLevels } from '../services/levelService'
+import { getLevelById, getLevels, getPartRects } from '../services/levelService'
 import {
   createEmptyProgress,
   isLevelComplete,
@@ -164,6 +164,15 @@ export function useLevelProgress() {
     saveAttempt({ ...progress, viewport: { ...viewport } })
   }
 
+  function setPartIndex(index: number): void {
+    const level = currentLevel.value
+    const progress = attempt.value
+    if (!level || !progress) return
+    if (!Number.isInteger(index) || index < 0 || index >= getPartRects(level).length) return
+
+    saveAttempt({ ...progress, partIndex: index })
+  }
+
   function restartLevel(): void {
     const level = currentLevel.value
     const progress = attempt.value
@@ -202,6 +211,7 @@ export function useLevelProgress() {
     recordHint,
     setElapsedSeconds,
     setViewport,
+    setPartIndex,
     restartLevel,
     getNextLevelId,
   }
