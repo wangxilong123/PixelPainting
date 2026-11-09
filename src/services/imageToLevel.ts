@@ -1,4 +1,4 @@
-import type { Level, PaletteColor } from '../models/level'
+import type { Level, LevelParts, PaletteColor } from '../models/level'
 
 /** RGBA buffer shaped like ImageData so Node and the browser can both feed it. */
 export type PixelSource = {
@@ -9,8 +9,16 @@ export type PixelSource = {
 
 export type QuantizeOptions = {
   maxColors?: number
+  /** Merge colors whose three channel differences add up to at most this. Zero keeps every color. */
+  mergeDistance?: number
   /** Color names keyed by hex, case-insensitive. */
   colorNames?: Record<string, string>
+}
+
+export type QuantizedSource = {
+  palette: PaletteColor[]
+  /** Exact source hex to the palette ID that paints it, merged colors included. */
+  ids: Map<string, number>
 }
 
 export type LevelMeta = {
@@ -20,8 +28,10 @@ export type LevelMeta = {
   difficulty: 1 | 2 | 3
   order?: number
   tags?: string[]
+  parts?: LevelParts
   colorNames?: Record<string, string>
   maxColors?: number
+  mergeDistance?: number
   source?: 'preset' | 'user'
 }
 
@@ -35,7 +45,25 @@ function hexAt(data: Uint8ClampedArray, offset: number): string {
   return hex
 }
 
-export function quantizePalette(source: PixelSource, options: QuantizeOptions = {}): PaletteColor[] {
+function channelDistance(left: string, right: string): number {
+  let total = 0
+  for (let channel = 0; channel < 3; channel += 1) {
+    const at = 1 + channel * 2
+    const difference = Number.parseInt(left.slice(at, at + 2), 16)
+      - Number.parseInt(right.slice(at, at + 2), 16)
+    total += Math.abs(difference)
+  }
+  return total
+}
+
+// 常用色排在前面，同数量按十六进制升序，保证同一张图每次得到同样的编号
+function byCountThenHex(counts: Map<string, number>): string[] {
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+    .map(([hex]) => hex)
+}
+
+export function quantizeSource(source: PixelSource, options: QuantizeOptions = {}): QuantizedSource {
   const { width, height, data } = source
   const counts = new Map<string, number>()
   for (let index = 0; index < width * height; index += 1) {
@@ -48,32 +76,52 @@ export function quantizePalette(source: PixelSource, options: QuantizeOptions = 
   if (counts.size === 0) {
     throw new Error('图片没有任何不透明像素，无法生成关卡')
   }
+
+  // 近似色并到先出现的代表色上，代表色累加像素数后重新排序编号
+  const mergeDistance = options.mergeDistance ?? 0
+  const merged = new Map<string, number>()
+  const representativeOf = new Map<string, string>()
+  for (const hex of byCountThenHex(counts)) {
+    const kept = mergeDistance > 0
+      ? [...merged.keys()].find((candidate) => channelDistance(hex, candidate) <= mergeDistance)
+      : undefined
+    const representative = kept ?? hex
+    merged.set(representative, (merged.get(representative) ?? 0) + (counts.get(hex) ?? 0))
+    representativeOf.set(hex, representative)
+  }
+
   const { maxColors } = options
-  if (maxColors !== undefined && counts.size > maxColors) {
-    throw new Error(`图片含 ${counts.size} 种颜色，超过上限 ${maxColors}`)
+  if (maxColors !== undefined && merged.size > maxColors) {
+    throw new Error(`图片含 ${merged.size} 种颜色，超过上限 ${maxColors}`)
   }
 
   const names = new Map(
     Object.entries(options.colorNames ?? {}).map(([hex, name]) => [hex.toUpperCase(), name]),
   )
-  // 常用色排在前面，同数量按十六进制升序，保证同一张图每次生成同样的编号
-  const ordered = [...counts.entries()]
-    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
-    .map(([hex]) => hex)
-
-  return ordered.map((hex, index) => ({
+  const palette = byCountThenHex(merged).map((hex, index) => ({
     id: index + 1,
     hex,
     name: names.get(hex) ?? `色 ${index + 1}`,
   }))
+
+  const idOfRepresentative = new Map(palette.map((color) => [color.hex, color.id]))
+  const ids = new Map<string, number>()
+  for (const [hex, representative] of representativeOf) {
+    ids.set(hex, idOfRepresentative.get(representative) ?? 0)
+  }
+  return { palette, ids }
+}
+
+export function quantizePalette(source: PixelSource, options: QuantizeOptions = {}): PaletteColor[] {
+  return quantizeSource(source, options).palette
 }
 
 export function imageToLevel(source: PixelSource, meta: LevelMeta): Level {
-  const palette = quantizePalette(source, {
+  const { palette, ids } = quantizeSource(source, {
     maxColors: meta.maxColors,
+    mergeDistance: meta.mergeDistance,
     colorNames: meta.colorNames,
   })
-  const ids = new Map(palette.map((color) => [color.hex, color.id]))
   const { width, height, data } = source
 
   const cells: number[] = []
@@ -95,6 +143,7 @@ export function imageToLevel(source: PixelSource, meta: LevelMeta): Level {
     height,
     palette,
     cells,
+    parts: meta.parts,
     order: meta.order,
     tags: meta.tags,
     source: meta.source ?? 'preset',

@@ -8,14 +8,17 @@ import { PNG } from 'pngjs'
 import { levelCategories } from '../src/data/categories.ts'
 import { imageToLevel } from '../src/services/imageToLevel.ts'
 
-const maxDimension = 64
+const maxDimension = 128
+const chunkThreshold = 64
 const colorWarningThreshold = 12
 const alphaThreshold = 128
 
 const usage = `用法：node scripts/convert-level.mjs <png> --title <名称> --category <分类> --difficulty <1|2|3>
       [--id <关卡ID>] [--order <序号>] [--tags <a,b>] [--name <#RRGGBB=名称>]...
       [--thumbnail <透明底PNG>] [--max-colors <n>] [--out src/data/levels] [--dry-run]
-分类可选值：${levelCategories.map((entry) => entry.id).join('、')}`
+      [--parts <2|3>] [--merge-distance <n>]
+分类可选值：${levelCategories.map((entry) => entry.id).join('、')}
+超过 ${chunkThreshold} 格的图必须带 --parts 分块，上限 ${maxDimension}；带 --parts 时自动产出整图缩略图`
 
 function quote(value) {
   return `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
@@ -43,6 +46,8 @@ function parseArguments(argv) {
       thumbnail: { type: 'string' },
       out: { type: 'string', default: 'src/data/levels' },
       'max-colors': { type: 'string' },
+      parts: { type: 'string' },
+      'merge-distance': { type: 'string' },
       name: { type: 'string', multiple: true },
       'dry-run': { type: 'boolean', default: false },
     },
@@ -71,11 +76,28 @@ function parseArguments(argv) {
   const id = values.id ?? basename(positionals[0]).replace(/\.png$/i, '')
   if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) fail(`关卡 ID ${id} 只能用小写字母、数字和连字符`)
 
+  let parts
+  if (values.parts !== undefined) {
+    const split = Number(values.parts)
+    if (![2, 3].includes(split)) fail(`--parts 只能是 2 或 3（n×n），收到 ${values.parts}`)
+    parts = { cols: split, rows: split }
+  }
+
+  let mergeDistance
+  if (values['merge-distance'] !== undefined) {
+    mergeDistance = Number(values['merge-distance'])
+    if (!Number.isInteger(mergeDistance) || mergeDistance < 0) {
+      fail(`--merge-distance 需要非负整数，收到 ${values['merge-distance']}`)
+    }
+  }
+
   return {
     pngPath: positionals[0],
     outDir: resolve(values.out),
     dryRun: values['dry-run'],
     thumbnail: values.thumbnail,
+    parts,
+    mergeDistance,
     maxColors: values['max-colors'] === undefined ? undefined : Number(values['max-colors']),
     meta: {
       id,
@@ -84,12 +106,13 @@ function parseArguments(argv) {
       difficulty,
       order: values.order === undefined ? undefined : Number(values.order),
       tags: values.tags ? values.tags.split(',').map((tag) => tag.trim()).filter(Boolean) : undefined,
+      parts,
       colorNames,
     },
   }
 }
 
-function readSource(pngPath) {
+function readSource(pngPath, chunked) {
   let png
   try {
     png = PNG.sync.read(readFileSync(pngPath))
@@ -101,6 +124,9 @@ function readSource(pngPath) {
   if (width < 1 || height < 1) fail(`图片尺寸非法：${width}×${height}`)
   if (width > maxDimension || height > maxDimension) {
     fail(`图片尺寸 ${width}×${height} 超过上限 ${maxDimension}，格子太多玩不动`)
+  }
+  if (!chunked && (width > chunkThreshold || height > chunkThreshold)) {
+    fail(`图片尺寸 ${width}×${height} 超过 ${chunkThreshold} 格，整幅一屏放不下，请加 --parts 2 或 --parts 3 分块`)
   }
 
   const corners = [0, width - 1, (height - 1) * width, height * width - 1]
@@ -150,6 +176,7 @@ function renderLevelFile(level, thumbnail) {
   if (level.order !== undefined) fields.push(`  order: ${level.order},`)
   if (level.tags !== undefined) fields.push(`  tags: [${level.tags.map(quote).join(', ')}],`)
   fields.push(`  source: ${quote(level.source)},`)
+  if (level.parts) fields.push(`  parts: { cols: ${level.parts.cols}, rows: ${level.parts.rows} },`)
   if (thumbnail) fields.push(`  thumbnail: ${exportName(level.id)}Thumbnail,`)
   fields.push('  palette: [')
   for (const color of level.palette) {
@@ -175,6 +202,30 @@ ${fields.join('\n')}
 `
 }
 
+// 分块关卡的格子数上万，选关卡片不能再用 DOM 格子画，按一格一像素产出整图缩略 PNG
+function renderGridPng(level) {
+  const png = new PNG({ width: level.width, height: level.height })
+  const channels = new Map(level.palette.map((color) => [color.id, [
+    Number.parseInt(color.hex.slice(1, 3), 16),
+    Number.parseInt(color.hex.slice(3, 5), 16),
+    Number.parseInt(color.hex.slice(5, 7), 16),
+  ]]))
+
+  for (const [index, colorId] of level.cells.entries()) {
+    const offset = index * 4
+    const rgb = channels.get(colorId)
+    if (!rgb) {
+      png.data[offset + 3] = 0
+      continue
+    }
+    png.data[offset] = rgb[0]
+    png.data[offset + 1] = rgb[1]
+    png.data[offset + 2] = rgb[2]
+    png.data[offset + 3] = 255
+  }
+  return PNG.sync.write(png)
+}
+
 function renderIndex(outDir) {
   const files = readdirSync(outDir)
     .filter((name) => name.endsWith('.ts') && name !== 'index.ts')
@@ -194,9 +245,18 @@ export const presetLevels: readonly Level[] = [${registered.join(', ')}]
 
 function main() {
   const options = parseArguments(process.argv.slice(2))
-  const source = readSource(options.pngPath)
-  const level = imageToLevel(source, { ...options.meta, maxColors: options.maxColors })
-  const thumbnail = options.thumbnail ? validateThumbnail(options.thumbnail) : undefined
+  const source = readSource(options.pngPath, options.parts !== undefined)
+  const level = imageToLevel(source, {
+    ...options.meta,
+    maxColors: options.maxColors,
+    mergeDistance: options.mergeDistance,
+  })
+  // 显式给的缩略图优先；带 --parts 时按格子自动产出一张，卡片不用为上万个格子建 DOM
+  const autoThumbnail = options.parts !== undefined && options.thumbnail === undefined
+  const thumbnail = options.thumbnail
+    ? validateThumbnail(options.thumbnail)
+    : autoThumbnail ? { width: level.width, height: level.height } : undefined
+  const thumbnailPath = join(options.outDir, `${level.id}.png`)
 
   if (level.palette.length > colorWarningThreshold) {
     console.warn(`提示：这张图有 ${level.palette.length} 种颜色，编号会缩到 9px，考虑减色后再投`)
@@ -211,13 +271,16 @@ function main() {
   } else {
     writeFileSync(levelPath, body, 'utf8')
     writeFileSync(join(options.outDir, 'index.ts'), renderIndex(options.outDir), 'utf8')
-    if (thumbnail) copyFileSync(options.thumbnail, join(options.outDir, `${level.id}.png`))
+    if (options.thumbnail) copyFileSync(options.thumbnail, thumbnailPath)
+    else if (autoThumbnail) writeFileSync(thumbnailPath, renderGridPng(level))
   }
 
   console.log(`${options.dryRun ? '试跑' : '已写入'} ${level.id} ${level.title}`)
   console.log(`尺寸 ${level.width}×${level.height}，可交互格 ${interactive}，颜色 ${level.palette.length} 种`)
+  if (level.parts) console.log(`分块 ${level.parts.cols}×${level.parts.rows}`)
   if (thumbnail) {
-    console.log(`缩略图 ${thumbnail.width}×${thumbnail.height}${options.dryRun ? '（试跑不写文件）' : ''}`)
+    const origin = autoThumbnail ? '（按格子自动产出）' : ''
+    console.log(`缩略图 ${thumbnail.width}×${thumbnail.height}${origin}${options.dryRun ? '（试跑不写文件）' : ''}`)
   }
   if (!options.dryRun) console.log(`文件 ${levelPath}`)
   console.log('接下来跑 npm run test:unit 和 npm run build，再目视核对图案')
