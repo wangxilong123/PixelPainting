@@ -1,6 +1,13 @@
 import type { Level, LevelViewport } from '../models/level'
+import type { PartRect } from '../services/levelService'
 import { cellsAlongSegment, screenToCell, screenToWorld, type Cell, type Point } from '../utils/coordinates'
-import { createDefaultViewport, normalizeViewport, panViewport, zoomAround } from './viewport'
+import {
+  createDefaultViewport,
+  normalizeViewport,
+  panViewport,
+  zoomAround,
+  type ViewportBounds,
+} from './viewport'
 
 export type PaintStatus = 'painted' | 'incorrect' | 'ignored'
 export type PaintResult =
@@ -25,6 +32,7 @@ export type PixelCanvasController = {
   panBy(deltaX: number, deltaY: number): void
   resetViewport(): void
   setViewport(viewport: LevelViewport): void
+  setPart(rect: PartRect | null): void
   setHint(index: number | null): void
   centerOnCell(index: number): void
   invalidate(): void
@@ -78,6 +86,7 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
   const palette = new Map(level.palette.map((color) => [color.id, color.hex]))
   const emptyFills = new Map(level.palette.map((color) => [color.id, tintTowardsEmpty(color.hex)]))
   let viewport = createDefaultViewport()
+  let part: PartRect | null = null
   let selectedColor: number | null = null
   let hintIndex: number | null = null
   let errorIndex: number | null = null
@@ -92,19 +101,35 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
   let touchOrigin: Point | undefined
   let userAdjusted = false
 
+  // 分块只是绘制和命中的裁剪范围，格子坐标和 index 仍然按整图算
+  function activePart(): PartRect {
+    return part ?? { index: 0, x: 0, y: 0, width: level.width, height: level.height }
+  }
+
+  function scaleBounds(): ViewportBounds | undefined {
+    const { width, height } = canvas.getBoundingClientRect()
+    if (width <= 0 || height <= 0) return undefined
+    const rect = activePart()
+    return {
+      viewport: { width, height },
+      world: { width: rect.width * cellSize, height: rect.height * cellSize },
+    }
+  }
+
   // The fitted viewport is derived from the live canvas size, so it stays centered on resize
   // until the player pans or zooms, and it is never reported as a saved viewport.
   function fitViewport(): LevelViewport | null {
     const { width, height } = canvas.getBoundingClientRect()
     if (width <= 0 || height <= 0) return null
-    const worldWidth = level.width * cellSize
-    const worldHeight = level.height * cellSize
-    const scale = Math.min(fitScaleMax, Math.max(0.5, Math.min(width / worldWidth, height / worldHeight)))
+    const rect = activePart()
+    const worldWidth = rect.width * cellSize
+    const worldHeight = rect.height * cellSize
+    const scale = Math.min(fitScaleMax, Math.min(width / worldWidth, height / worldHeight))
     return normalizeViewport({
       scale,
-      offsetX: (width - worldWidth * scale) / 2,
-      offsetY: (height - worldHeight * scale) / 2,
-    })
+      offsetX: (width - worldWidth * scale) / 2 - rect.x * cellSize * scale,
+      offsetY: (height - worldHeight * scale) / 2 - rect.y * cellSize * scale,
+    }, { viewport: { width, height }, world: { width: worldWidth, height: worldHeight } })
   }
 
   function activeViewport(): LevelViewport {
@@ -139,10 +164,11 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
 
     const topLeft = screenToWorld({ x: 0, y: 0 }, view)
     const bottomRight = screenToWorld({ x: width, y: height }, view)
-    const firstRow = Math.max(0, Math.floor(topLeft.y / cellSize))
-    const lastRow = Math.min(level.height, Math.ceil(bottomRight.y / cellSize))
-    const firstColumn = Math.max(0, Math.floor(topLeft.x / cellSize))
-    const lastColumn = Math.min(level.width, Math.ceil(bottomRight.x / cellSize))
+    const rect = activePart()
+    const firstRow = Math.max(rect.y, Math.floor(topLeft.y / cellSize))
+    const lastRow = Math.min(rect.y + rect.height, Math.ceil(bottomRight.y / cellSize))
+    const firstColumn = Math.max(rect.x, Math.floor(topLeft.x / cellSize))
+    const lastColumn = Math.min(rect.x + rect.width, Math.ceil(bottomRight.x / cellSize))
     const painted = readPainted()
 
     for (let row = firstRow; row < lastRow; row += 1) {
@@ -218,6 +244,12 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
   }
 
   function paintCell({ row, column }: Cell): PaintResult {
+    const rect = activePart()
+    if (row < rect.y || row >= rect.y + rect.height
+      || column < rect.x || column >= rect.x + rect.width) {
+      return { status: 'ignored' }
+    }
+
     const index = row * level.width + column
     const target = level.cells[index]
     if (selectedColor === null || target === 0 || readPainted()[index] === target) {
@@ -249,7 +281,7 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
     beginUserViewport()
     const exponent = Math.min(20, Math.max(-20, -delta * 0.0015))
     const scale = viewport.scale * Math.exp(exponent)
-    updateViewport(zoomAround(viewport, { x: screenX, y: screenY }, scale), true)
+    updateViewport(zoomAround(viewport, { x: screenX, y: screenY }, scale, scaleBounds()), true)
   }
 
   function panBy(deltaX: number, deltaY: number): void {
@@ -346,7 +378,7 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
       const oldDistance = distance(previous, other)
       const newDistance = distance(point, other)
       const zoomed = oldDistance > 0 && newDistance > 0
-        ? zoomAround(viewport, oldCenter, viewport.scale * newDistance / oldDistance)
+        ? zoomAround(viewport, oldCenter, viewport.scale * newDistance / oldDistance, scaleBounds())
         : viewport
       updateViewport(panViewport(zoomed, {
         x: newCenter.x - oldCenter.x,
@@ -419,9 +451,15 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
       updateViewport(createDefaultViewport(), true)
     },
     setViewport(next) {
-      const normalized = normalizeViewport(next)
+      const normalized = normalizeViewport(next, scaleBounds())
       userAdjusted = !isDefaultViewport(normalized)
       updateViewport(normalized, false)
+    },
+    // 换块时视口回到该块的适配位置，玩家手动调过的缩放和平移不跨块保留
+    setPart(rect) {
+      part = rect
+      userAdjusted = false
+      updateViewport(fitViewport() ?? createDefaultViewport(), false)
     },
     setHint(index) {
       hintIndex = index

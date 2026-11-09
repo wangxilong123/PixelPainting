@@ -3,7 +3,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createPixelCanvas, type PaintResult, type PaintStatus, type PixelCanvasController } from '../canvas/pixelCanvas'
 import { createDefaultViewport } from '../canvas/viewport'
 import type { Level, LevelViewport } from '../models/level'
-import { getInteractiveCellCount } from '../services/levelService'
+import { getInteractiveCellCount, type PartRect } from '../services/levelService'
 
 const props = defineProps<{
   level: Level
@@ -12,6 +12,7 @@ const props = defineProps<{
   selectedColorId: number | null
   viewport?: LevelViewport
   hintIndex?: number | null
+  part?: PartRect | null
   autoFit?: boolean
 }>()
 
@@ -56,6 +57,8 @@ function mountController(): void {
   available.value = controller.available
   controller.setSelectedColor(props.selectedColorId)
   controller.setHint(props.hintIndex ?? null)
+  // 先按块复位视口，再套用存档里的视口：恢复同一块时玩家的缩放平移优先
+  controller.setPart(props.part ?? null)
   controller.setViewport(props.viewport ?? createDefaultViewport())
 }
 
@@ -64,6 +67,7 @@ onBeforeUnmount(() => controller?.destroy())
 watch(() => props.level, mountController)
 watch(() => props.selectedColorId, (color) => controller?.setSelectedColor(color))
 watch(() => props.hintIndex, (index) => controller?.setHint(index ?? null))
+watch(() => props.part, (part) => controller?.setPart(part ?? null))
 watch(() => props.viewport, (viewport) => controller?.setViewport(viewport ?? createDefaultViewport()))
 watch(() => props.readPainted(), () => controller?.invalidate())
 

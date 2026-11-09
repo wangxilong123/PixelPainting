@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Level } from '../models/level'
+import type { Level, LevelParts } from '../models/level'
+import { getPartRects } from '../services/levelService'
 import { createPixelCanvas, type PaintStatus } from './pixelCanvas'
 
 const level: Level = {
@@ -14,6 +15,35 @@ const level: Level = {
     { id: 2, hex: '#FFEEDD', name: '米色' },
   ],
   cells: [0, 1, 2, 1, 0, 2],
+}
+
+const chunked: Level = {
+  id: 'chunked',
+  title: '分块',
+  category: 'animal',
+  difficulty: 3,
+  width: 4,
+  height: 4,
+  palette: [
+    { id: 1, hex: '#AABBCC', name: '蓝灰' },
+    { id: 2, hex: '#FFEEDD', name: '米色' },
+  ],
+  cells: [1, 2, 1, 2, 2, 1, 2, 1, 1, 2, 1, 2, 2, 1, 2, 1],
+  parts: { cols: 2, rows: 2 },
+}
+
+function solid(width: number, height: number, parts?: LevelParts): Level {
+  return {
+    id: 'solid',
+    title: '大图',
+    category: 'animal',
+    difficulty: 3,
+    width,
+    height,
+    palette: [{ id: 1, hex: '#AABBCC', name: '蓝灰' }],
+    cells: Array<number>(width * height).fill(1),
+    parts,
+  }
 }
 
 function setup(
@@ -375,5 +405,88 @@ describe('pixel canvas auto fit and right-drag pan', () => {
     const detached = new MouseEvent('contextmenu', { cancelable: true })
     view.canvas.dispatchEvent(detached)
     expect(detached.defaultPrevented).toBe(false)
+  })
+})
+
+describe('pixel canvas parts', () => {
+  it('draws only the cells of the active part and the whole level without one', () => {
+    const view = setup(Array(16).fill(0), 'painted', true, chunked)
+    view.draw()
+    expect(view.context.fillText).toHaveBeenCalledTimes(16)
+    expect(view.context.translate).toHaveBeenLastCalledWith(54, 4)
+
+    view.context.fillText.mockClear()
+    view.controller.setPart(getPartRects(chunked)[3])
+    view.draw()
+    expect(view.context.fillText.mock.calls.map(([text]) => text)).toEqual(['1', '2', '2', '1'])
+    expect(view.context.translate).toHaveBeenLastCalledWith(6, -44)
+
+    view.context.fillText.mockClear()
+    view.controller.setPart(null)
+    view.draw()
+    expect(view.context.fillText).toHaveBeenCalledTimes(16)
+    expect(view.context.translate).toHaveBeenLastCalledWith(54, 4)
+    view.controller.destroy()
+  })
+
+  it('ignores hits outside the active part and paints inside it', () => {
+    const view = setup(Array(16).fill(0), 'painted', true, chunked)
+    view.controller.setPart(getPartRects(chunked)[3])
+    view.controller.setSelectedColor(1)
+
+    // (行 2, 列 0) 落在画布里但属于第二块
+    expect(view.controller.paintAt(30, 76).status).toBe('ignored')
+    expect(view.commitPaint).not.toHaveBeenCalled()
+    expect(view.controller.paintAt(126, 76)).toEqual({ status: 'painted', index: 10, colorId: 1 })
+    expect(view.commitPaint).toHaveBeenCalledExactlyOnceWith(10, 1)
+    view.controller.destroy()
+  })
+
+  it('stops a drag at the part boundary', () => {
+    const view = setup(Array(16).fill(0), 'painted', true, chunked)
+    view.controller.setPart(getPartRects(chunked)[0])
+    view.controller.setSelectedColor(1)
+    pointer(view.canvas, 'pointerdown', 126, 76)
+    pointer(view.canvas, 'pointermove', 222, 76)
+    pointer(view.canvas, 'pointerup', 222, 76)
+
+    expect(view.onPaint.mock.calls.map(([result]) => [result.index, result.status]))
+      .toEqual([[0, 'painted'], [1, 'incorrect']])
+    expect(view.commitPaint).toHaveBeenCalledExactlyOnceWith(0, 1)
+    view.controller.destroy()
+  })
+
+  it('refits the viewport when switching parts and drops the pan of the previous one', () => {
+    const view = setup(Array(16).fill(0), 'painted', true, chunked)
+    view.controller.setPart(getPartRects(chunked)[0])
+    view.controller.panBy(30, 20)
+    view.draw()
+    expect(view.onViewportChange).toHaveBeenCalledExactlyOnceWith({ scale: 2, offsetX: 132, offsetY: 72 })
+
+    view.controller.setPart(getPartRects(chunked)[1])
+    view.draw()
+    expect(view.context.translate).toHaveBeenLastCalledWith(6, 52)
+
+    view.controller.panBy(10, 10)
+    view.controller.resetViewport()
+    view.draw()
+    expect(view.context.translate).toHaveBeenLastCalledWith(6, 52)
+    view.controller.destroy()
+  })
+
+  it('lowers the zoom floor for a whole large image and keeps it for one of its parts', () => {
+    const whole = setup(Array(1024).fill(0), 'painted', false, solid(32, 32))
+    whole.controller.setViewport({ scale: 0.05, offsetX: 0, offsetY: 0 })
+    whole.draw()
+    expect(whole.context.scale).toHaveBeenLastCalledWith(200 / 768, 200 / 768)
+    whole.controller.destroy()
+
+    const split = solid(32, 32, { cols: 2, rows: 2 })
+    const part = setup(Array(1024).fill(0), 'painted', false, split)
+    part.controller.setPart(getPartRects(split)[0])
+    part.controller.setViewport({ scale: 0.05, offsetX: 0, offsetY: 0 })
+    part.draw()
+    expect(part.context.scale).toHaveBeenLastCalledWith(0.5, 0.5)
+    part.controller.destroy()
   })
 })
