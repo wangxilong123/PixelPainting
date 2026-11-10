@@ -54,8 +54,6 @@ function open(levelId: string): void {
       :records="levelRecords"
       @open="open"
     />
-
-    <p class="carousel-hint">滚轮或左右方向键切换关卡，回车进入</p>
   </div>
 </template>
 
@@ -111,19 +109,9 @@ function open(levelId: string): void {
   color: var(--color-primary);
 }
 
-.carousel-hint {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
-}
-
 @media (max-width: 640px) {
   .level-stats {
     padding: var(--space-4);
-  }
-
-  .carousel-hint {
-    display: none;
   }
 }
 </style>
