@@ -86,6 +86,11 @@ function onWheel(event: WheelEvent): void {
   if (!element) return
   const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX
   if (delta === 0) return
+  // 横向已经到头就把滚轮还给页面，别把纵向滚动困在轮播里
+  const maxScroll = element.scrollWidth - element.clientWidth
+  const atEnd = delta > 0 && element.scrollLeft >= maxScroll - 1
+  const atStart = delta < 0 && element.scrollLeft <= 0
+  if (maxScroll <= 0 || atEnd || atStart) return
   event.preventDefault()
   if (typeof element.scrollBy === 'function') element.scrollBy({ left: delta })
   else element.scrollLeft += delta
@@ -144,30 +149,60 @@ onMounted(() => scrollToIndex(activeIndex.value, 'auto'))
 </script>
 
 <template>
-  <div
-    ref="track"
-    class="carousel-track"
-    role="group"
-    aria-label="关卡轮播"
-    tabindex="0"
-    @wheel="onWheel"
-    @keydown="onKeydown"
-    @scroll="onScroll"
-  >
-    <LevelCard
-      v-for="entry in entries"
-      :key="entry.level.id"
-      class="carousel-slot"
-      :class="{ active: entry.level.id === activeId }"
-      :level="entry.level"
-      :unlocked="entry.unlocked"
-      :completed="entry.cleared"
-      @open="emit('open', entry.level.id)"
-    />
+  <div class="carousel">
+    <div
+      ref="track"
+      class="carousel-track"
+      role="group"
+      aria-label="关卡轮播"
+      tabindex="0"
+      @wheel="onWheel"
+      @keydown="onKeydown"
+      @scroll="onScroll"
+    >
+      <LevelCard
+        v-for="entry in entries"
+        :key="entry.level.id"
+        class="carousel-slot"
+        :class="{ active: entry.level.id === activeId }"
+        :level="entry.level"
+        :unlocked="entry.unlocked"
+        :completed="entry.cleared"
+        @open="emit('open', entry.level.id)"
+      />
+    </div>
+
+    <div class="carousel-bar">
+      <button
+        type="button"
+        class="carousel-step"
+        aria-label="上一关"
+        :disabled="activeIndex === 0"
+        @click="step(-1)"
+      >
+        ‹
+      </button>
+      <span class="carousel-position" aria-live="polite">{{ activeIndex + 1 }} / {{ props.levels.length }}</span>
+      <button
+        type="button"
+        class="carousel-step"
+        aria-label="下一关"
+        :disabled="activeIndex === props.levels.length - 1"
+        @click="step(1)"
+      >
+        ›
+      </button>
+    </div>
   </div>
 </template>
 
 <style scoped>
+.carousel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
 .carousel-track {
   display: flex;
   gap: var(--space-4);
@@ -194,6 +229,45 @@ onMounted(() => scrollToIndex(activeIndex.value, 'auto'))
 /* 居中外圈用投影而不是边框，免得和完成、锁定态的边框颜色打架 */
 .carousel-slot.active {
   box-shadow: 0 0 0 var(--border-pixel) var(--color-primary);
+}
+
+.carousel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+}
+
+.carousel-step {
+  width: 2rem;
+  height: 2rem;
+  border: var(--border-pixel) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.carousel-step:hover:not(:disabled) {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.carousel-step:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.carousel-position {
+  min-width: 3.5rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 @media (prefers-reduced-motion: reduce) {

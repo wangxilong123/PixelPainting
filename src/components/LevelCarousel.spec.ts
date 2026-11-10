@@ -125,6 +125,41 @@ describe('LevelCarousel', () => {
     expect(track.scrollBy).toHaveBeenCalledWith({ left: 90 })
   })
 
+  it('hands the wheel back to the page once the track reaches an edge', () => {
+    const { track, layout } = mountCarousel()
+
+    layout.setLeft(levels.length * pitch - trackWidth)
+    const atEnd = wheel(track, 120)
+    expect(atEnd.defaultPrevented).toBe(false)
+    expect(track.scrollBy).not.toHaveBeenCalled()
+
+    layout.setLeft(0)
+    const atStart = wheel(track, -120)
+    expect(atStart.defaultPrevented).toBe(false)
+    expect(track.scrollBy).not.toHaveBeenCalled()
+  })
+
+  it('steps with the bar buttons, disables them at the ends and shows the position', async () => {
+    const { wrapper } = mountCarousel({ modelValue: first.id })
+    const position = () => wrapper.get('.carousel-position').text()
+    const steps = () => wrapper.findAll('.carousel-step')
+
+    expect(position()).toBe(`1 / ${levels.length}`)
+    expect(steps()[0].attributes('disabled')).toBeDefined()
+    expect(steps()[1].attributes('disabled')).toBeUndefined()
+
+    await steps()[1].trigger('click')
+    expect(wrapper.emitted('update:modelValue')).toEqual([[second.id]])
+    expect(position()).toBe(`2 / ${levels.length}`)
+
+    for (let round = 0; round < levels.length - 2; round += 1) {
+      await steps()[1].trigger('click')
+    }
+    expect(position()).toBe(`${levels.length} / ${levels.length}`)
+    expect(steps()[1].attributes('disabled')).toBeDefined()
+    expect(steps()[0].attributes('disabled')).toBeUndefined()
+  })
+
   it('reports the centered level as the model value', async () => {
     const { wrapper, layout } = mountCarousel({ modelValue: first.id })
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
