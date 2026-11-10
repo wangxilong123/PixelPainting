@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { iconPaths, type IconName } from './icons'
+import { computed } from 'vue'
+import type { IconName } from './icons'
+import { resolveIcon } from './iconSvg'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     name: IconName
     size?: number
   }>(),
   { size: 16 },
 )
+
+const source = computed(() => resolveIcon(props.name))
 </script>
 
 <template>
@@ -15,14 +19,13 @@ withDefaults(
     class="pixel-icon"
     :width="size"
     :height="size"
-    viewBox="0 0 16 16"
+    :viewBox="source.viewBox"
     fill="currentColor"
-    shape-rendering="crispEdges"
+    :shape-rendering="source.crisp ? 'crispEdges' : undefined"
     aria-hidden="true"
     focusable="false"
-  >
-    <path v-for="(d, index) in iconPaths[name]" :key="index" :d="d" />
-  </svg>
+    v-html="source.body"
+  />
 </template>
 
 <style scoped>
