@@ -114,6 +114,13 @@ function parseLevelProgress(level: Level, value: unknown): LevelProgress | undef
   return progress
 }
 
+// 2026-11-10 关卡文件按游玩顺序重排：甜甜圈 level-005→level-004、火箭 level-009→level-005。
+// 存档以关卡 ID 为键，旧键整体搬到新键；格子数对不上的记录照旧由 parseLevelProgress 拒收。
+const renamedLevelIds: Record<string, string> = {
+  'level-005': 'level-004',
+  'level-009': 'level-005',
+}
+
 export function loadProgressSnapshot(): ProgressSnapshot {
   const snapshot: ProgressSnapshot = { currentLevelId: null, levels: {} }
   const raw = storage.read()
@@ -129,13 +136,24 @@ export function loadProgressSnapshot(): ProgressSnapshot {
   if (!isRecord(value) || !isRecord(value.levels)
     || (value.currentLevelId !== null && typeof value.currentLevelId !== 'string')) return snapshot
 
-  if (typeof value.currentLevelId === 'string' && getLevelById(value.currentLevelId)) {
-    snapshot.currentLevelId = value.currentLevelId
+  if (typeof value.currentLevelId === 'string') {
+    const rawCurrent = value.currentLevelId
+    const currentId = getLevelById(rawCurrent) ? rawCurrent : renamedLevelIds[rawCurrent] ?? rawCurrent
+    if (getLevelById(currentId)) snapshot.currentLevelId = currentId
   }
-  for (const [id, entry] of Object.entries(value.levels)) {
-    const level = getLevelById(id)
-    const progress = level && parseLevelProgress(level, entry)
-    if (progress) snapshot.levels[id] = progress
+  for (const [rawId, entry] of Object.entries(value.levels)) {
+    // 先按当前 ID 解释：重命名之后写的新存档里 level-005 就是火箭；
+    // 格子数对不上才说明是重命名前的旧键（那时的 level-005 是甜甜圈），搬到新键。
+    for (const id of [rawId, renamedLevelIds[rawId]]) {
+      if (!id) continue
+      const level = getLevelById(id)
+      if (!level) continue
+      const source = id === rawId ? entry : isRecord(entry) ? { ...entry, levelId: id } : entry
+      const progress = parseLevelProgress(level, source)
+      if (!progress) continue
+      snapshot.levels[id] = progress
+      break
+    }
   }
   return snapshot
 }

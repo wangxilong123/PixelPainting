@@ -359,6 +359,7 @@ describe('GamePage', () => {
     }
   })
 
+  // 最后一关是 128 宽分块关，逐格涂完八千多格，机器忙时远超默认 5s
   it('hides the next button when the last level is completed', async () => {
     const levels = getLevels()
     const last = levels[levels.length - 1]
@@ -374,7 +375,7 @@ describe('GamePage', () => {
     } finally {
       wrapper.unmount()
     }
-  })
+  }, 20000)
 
   it('replays while preserving the best result and unlocks', async () => {
     const { wrapper, stub } = await mountGame(first.id)

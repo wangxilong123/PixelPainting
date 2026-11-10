@@ -158,6 +158,7 @@ describe('useLevelProgress', () => {
     expect(restored.currentProgress.value?.painted).toEqual(first.cells.map(() => 0))
   })
 
+  // 遍历全部关卡逐格涂完，机器忙时远超默认 5s
   it('settles the last cell once and immediately unlocks the next level', async () => {
     const progress = await session()
     progress.openLevel(first.id)
@@ -184,7 +185,7 @@ describe('useLevelProgress', () => {
       finishLevel(progress, level)
     }
     expect(progress.getNextLevelId()).toBeUndefined()
-  })
+  }, 20000)
 
   it('clears the current attempt while preserving the best result and unlocks', async () => {
     const progress = await session()

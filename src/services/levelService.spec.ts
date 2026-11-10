@@ -236,6 +236,8 @@ describe('preset levels', () => {
 
     expect(ids.length).toBeGreaterThan(0)
     expect(ids[0]).toBe('level-001')
+    // 关卡 ID 同时是文件名和存档键：编号必须连续且等于游玩顺序，不留空号
+    ids.forEach((id, index) => expect(id).toBe(`level-${String(index + 1).padStart(3, '0')}`))
     expect(new Set(ids).size).toBe(levels.length)
     expect(orders).toEqual([...orders].sort((a, b) => a - b))
     for (const level of levels) {

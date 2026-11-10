@@ -8,7 +8,7 @@ export const level008: Level = {
   difficulty: 3,
   width: 128,
   height: 117,
-  order: 7,
+  order: 8,
   source: 'preset',
   parts: { cols: 3, rows: 3 },
   thumbnail: level008Thumbnail,

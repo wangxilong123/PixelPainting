@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Level, LevelProgress } from '../models/level'
-import { getLevels } from './levelService'
+import { getLevelById, getLevels } from './levelService'
 import { createEmptyProgress, getLevelSummary, isLevelComplete, isLevelUnlocked } from './progressService'
 
 const sample: Level = {
@@ -175,6 +175,26 @@ describe('local progress snapshots', () => {
       levels: { [first.id]: { ...expected, stars: 3 } },
     }))
     expect(service.loadProgress()[first.id]).toEqual(expected)
+  })
+
+  it('moves progress saved under the pre-rename level ids to the new ids', async () => {
+    const service = await import('./progressService')
+    const donut = getLevelById('level-004')
+    const rocket = getLevelById('level-005')
+    if (!donut || !rocket) throw new Error('fixture levels missing')
+    localStorage.setItem(key, JSON.stringify({
+      currentLevelId: 'level-009',
+      levels: {
+        'level-005': { ...completedProgress(donut), levelId: 'level-005' },
+        'level-009': { ...completedProgress(rocket), levelId: 'level-009' },
+      },
+    }))
+
+    const snapshot = service.loadProgressSnapshot()
+    expect(snapshot.currentLevelId).toBe('level-005')
+    expect(Object.keys(snapshot.levels).sort()).toEqual(['level-004', 'level-005'])
+    expect(isLevelComplete(donut, snapshot.levels['level-004'])).toBe(true)
+    expect(isLevelComplete(rocket, snapshot.levels['level-005'])).toBe(true)
   })
 
   it('keeps the save and the completion rules of an unchunked level unchanged', async () => {
