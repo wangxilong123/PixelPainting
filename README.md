@@ -76,7 +76,7 @@ node scripts/convert-level.mjs 橘猫.png --title 橘猫 --category animal --dif
 
 ```
 src/canvas/       Canvas 控制器和视口计算，不依赖 Vue
-src/components/   卡片、轮播、调色板、画布、选块面板、结算弹窗
+src/components/   卡片、轮播、调色板、画布、选块面板、结算弹窗、像素风图标
 src/composables/  进度与设置的共享状态
 src/data/         分类注册表和关卡数据
 src/models/       Level 与进度类型
