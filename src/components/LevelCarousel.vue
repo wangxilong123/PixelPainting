@@ -232,6 +232,10 @@ onMounted(() => scrollToIndex(activeIndex.value, 'auto'))
 }
 
 .carousel-bar {
+  /* 控制条尺寸集中在这里调：按钮边长、按钮字号、位置计数字号 */
+  --step-size: 2.75rem;
+  --step-font: 1.5rem;
+  --position-font: 0.95rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -239,14 +243,14 @@ onMounted(() => scrollToIndex(activeIndex.value, 'auto'))
 }
 
 .carousel-step {
-  width: 2rem;
-  height: 2rem;
+  width: var(--step-size);
+  height: var(--step-size);
   border: var(--border-pixel) solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text-muted);
   font: inherit;
-  font-size: 1.1rem;
+  font-size: var(--step-font);
   line-height: 1;
   cursor: pointer;
   transition: border-color var(--transition-fast), color var(--transition-fast);
@@ -263,9 +267,9 @@ onMounted(() => scrollToIndex(activeIndex.value, 'auto'))
 }
 
 .carousel-position {
-  min-width: 3.5rem;
+  min-width: 4.5rem;
   text-align: center;
-  font-size: 0.8rem;
+  font-size: var(--position-font);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
