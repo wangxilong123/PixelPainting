@@ -7,6 +7,7 @@ import CompletionDialog from '../components/CompletionDialog.vue'
 import GameSettings from '../components/GameSettings.vue'
 import PartPicker from '../components/PartPicker.vue'
 import PixelCanvas from '../components/PixelCanvas.vue'
+import PixelIcon from '../components/PixelIcon.vue'
 import { useGameSettings } from '../composables/useGameSettings'
 import { useLevelProgress } from '../composables/useLevelProgress'
 import { playPaintSound } from '../services/audioService'
@@ -255,7 +256,10 @@ function backToList(): void {
 <template>
   <div v-if="entered && level && currentProgress" class="game-page">
     <header v-if="!immersive" class="game-bar">
-      <button type="button" @click="router.push({ name: 'levels' })">返回</button>
+      <button type="button" @click="router.push({ name: 'levels' })">
+        <PixelIcon name="arrow-left" />
+        <span>返回</span>
+      </button>
       <h2 class="game-title">{{ level.title }}</h2>
       <span class="game-stat">已填 {{ paintedCount }} / {{ total }}</span>
       <span class="game-stat game-timer" role="timer">{{ timeDisplay }}</span>
@@ -265,7 +269,8 @@ function backToList(): void {
           :aria-expanded="settingsOpen"
           @click="settingsOpen = !settingsOpen"
         >
-          设置
+          <PixelIcon name="settings" />
+          <span>设置</span>
         </button>
         <GameSettings :open="settingsOpen" @close="settingsOpen = false" />
       </div>
@@ -282,7 +287,8 @@ function backToList(): void {
     </header>
 
     <button v-else type="button" class="immersive-exit" @click="toggleImmersive">
-      退出沉浸
+      <PixelIcon name="compress" />
+      <span>退出沉浸</span>
     </button>
 
     <PixelCanvas
@@ -310,15 +316,36 @@ function backToList(): void {
     />
 
     <div class="game-controls">
-      <button type="button" :disabled="isCompleted" @click="useHint">提示</button>
-      <button type="button" :disabled="!canUndo" @click="undo">撤销</button>
-      <button type="button" :disabled="!canRedo" @click="redo">重做</button>
-      <button type="button" @click="canvasRef?.resetViewport()">复位视图</button>
+      <button type="button" :disabled="isCompleted" @click="useHint">
+        <PixelIcon name="hint" />
+        <span>提示</span>
+      </button>
+      <button type="button" :disabled="!canUndo" @click="undo">
+        <PixelIcon name="undo" />
+        <span>撤销</span>
+      </button>
+      <button type="button" :disabled="!canRedo" @click="redo">
+        <PixelIcon name="redo" />
+        <span>重做</span>
+      </button>
+      <button type="button" @click="canvasRef?.resetViewport()">
+        <PixelIcon name="reset-view" />
+        <span>复位视图</span>
+      </button>
       <template v-if="confirmRestart">
-        <button type="button" class="danger" @click="doRestart">确认重新开始</button>
-        <button type="button" @click="confirmRestart = false">取消</button>
+        <button type="button" class="danger" @click="doRestart">
+          <PixelIcon name="warn" />
+          <span>确认重新开始</span>
+        </button>
+        <button type="button" @click="confirmRestart = false">
+          <PixelIcon name="close" />
+          <span>取消</span>
+        </button>
       </template>
-      <button v-else type="button" @click="requestRestart">重新开始</button>
+      <button v-else type="button" @click="requestRestart">
+        <PixelIcon name="replay" />
+        <span>重新开始</span>
+      </button>
     </div>
 
     <ColorPalette
@@ -369,6 +396,9 @@ function backToList(): void {
   top: var(--space-4);
   right: var(--space-4);
   z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   padding: 0.3rem 0.8rem;
   border: 2px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -401,6 +431,10 @@ function backToList(): void {
 
 .game-bar button,
 .game-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
   padding: 0.4rem 0.9rem;
   border: var(--border-pixel) solid var(--color-border);
   border-radius: var(--radius-lg);

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { Level } from '../models/level'
 import PixelPreview from './PixelPreview.vue'
+import PixelIcon from './PixelIcon.vue'
 
 const props = defineProps<{
   open: boolean
@@ -32,13 +33,28 @@ const time = computed(() => {
       />
       <PixelPreview v-else-if="level" class="dialog-preview" :level="level" />
       <ul class="dialog-stats">
-        <li>用时 {{ time }}</li>
-        <li>提示 {{ hintsUsed }} 次</li>
+        <li>
+          <PixelIcon name="clock" />
+          <span>用时 {{ time }}</span>
+        </li>
+        <li>
+          <PixelIcon name="hint" />
+          <span>提示 {{ hintsUsed }} 次</span>
+        </li>
       </ul>
       <div class="dialog-actions">
-        <button v-if="nextLevelId" type="button" class="primary" @click="emit('next')">下一关</button>
-        <button type="button" @click="emit('replay')">再玩一次</button>
-        <button type="button" @click="emit('back')">返回列表</button>
+        <button v-if="nextLevelId" type="button" class="primary" @click="emit('next')">
+          <PixelIcon name="arrow-right" />
+          <span>下一关</span>
+        </button>
+        <button type="button" @click="emit('replay')">
+          <PixelIcon name="replay" />
+          <span>再玩一次</span>
+        </button>
+        <button type="button" @click="emit('back')">
+          <PixelIcon name="arrow-left" />
+          <span>返回列表</span>
+        </button>
       </div>
     </div>
   </div>
@@ -87,6 +103,12 @@ img.dialog-preview {
   color: var(--color-text-muted);
 }
 
+.dialog-stats li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .dialog-actions {
   display: flex;
   flex-wrap: wrap;
@@ -95,6 +117,9 @@ img.dialog-preview {
 }
 
 .dialog-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   padding: 0.5rem 1rem;
   border: 2px solid var(--color-border);
   border-radius: var(--radius-lg);

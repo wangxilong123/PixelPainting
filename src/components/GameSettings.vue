@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useGameSettings } from '../composables/useGameSettings'
+import PixelIcon from './PixelIcon.vue'
 
 defineProps<{ open: boolean }>()
 
@@ -13,17 +14,23 @@ const { soundEnabled, showRemaining, immersive, toggleSound, toggleRemaining, to
   <div v-if="open" class="settings-drawer" role="dialog" aria-label="游戏设置">
     <label class="setting-row">
       <input type="checkbox" :checked="soundEnabled" @change="toggleSound" />
+      <PixelIcon :name="soundEnabled ? 'sound-on' : 'sound-off'" />
       <span>音效</span>
     </label>
     <label class="setting-row">
       <input type="checkbox" :checked="showRemaining" @change="toggleRemaining" />
+      <PixelIcon :name="showRemaining ? 'grid-on' : 'grid-off'" />
       <span>调色板剩余格数</span>
     </label>
     <label class="setting-row">
       <input type="checkbox" :checked="immersive" @change="toggleImmersive" />
+      <PixelIcon :name="immersive ? 'compress' : 'expand'" />
       <span>沉浸模式</span>
     </label>
-    <button type="button" class="settings-close" @click="emit('close')">关闭</button>
+    <button type="button" class="settings-close" @click="emit('close')">
+      <PixelIcon name="close" />
+      <span>关闭</span>
+    </button>
   </div>
 </template>
 
@@ -60,6 +67,9 @@ const { soundEnabled, showRemaining, immersive, toggleSound, toggleRemaining, to
 
 .settings-close {
   align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   padding: 0.3rem 0.9rem;
   border: 2px solid var(--color-border);
   border-radius: var(--radius-lg);

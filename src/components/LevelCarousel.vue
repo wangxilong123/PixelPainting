@@ -4,6 +4,7 @@ import type { Level, LevelProgress } from '../models/level'
 import { getLevels } from '../services/levelService'
 import { isLevelCleared, isLevelUnlocked } from '../services/progressService'
 import LevelCard from './LevelCard.vue'
+import PixelIcon from './PixelIcon.vue'
 
 const props = defineProps<{
   levels: Level[]
@@ -180,7 +181,7 @@ onMounted(() => scrollToIndex(activeIndex.value, 'auto'))
         :disabled="activeIndex === 0"
         @click="step(-1)"
       >
-        ‹
+        <PixelIcon name="arrow-left" />
       </button>
       <span class="carousel-position" aria-live="polite">{{ activeIndex + 1 }} / {{ props.levels.length }}</span>
       <button
@@ -190,7 +191,7 @@ onMounted(() => scrollToIndex(activeIndex.value, 'auto'))
         :disabled="activeIndex === props.levels.length - 1"
         @click="step(1)"
       >
-        ›
+        <PixelIcon name="arrow-right" />
       </button>
     </div>
   </div>
@@ -243,6 +244,9 @@ onMounted(() => scrollToIndex(activeIndex.value, 'auto'))
 }
 
 .carousel-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: var(--step-size);
   height: var(--step-size);
   border: var(--border-pixel) solid var(--color-border);

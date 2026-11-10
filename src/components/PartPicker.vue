@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { Level } from '../models/level'
 import { normalizeParts, type PartRect } from '../services/levelService'
+import PixelIcon from './PixelIcon.vue'
 
 const props = defineProps<{
   level: Level
@@ -55,7 +56,8 @@ function isDone(index: number): boolean {
 
     <div class="part-stepper">
       <button type="button" :disabled="partIndex === 0" @click="emit('select', partIndex - 1)">
-        上一块
+        <PixelIcon name="arrow-left" />
+        <span>上一块</span>
       </button>
       <span class="part-position">第 {{ partIndex + 1 }}/{{ parts.length }} 块 · 已填 {{ counts[partIndex].done }}/{{ counts[partIndex].total }}</span>
       <button
@@ -63,7 +65,8 @@ function isDone(index: number): boolean {
         :disabled="partIndex === parts.length - 1"
         @click="emit('select', partIndex + 1)"
       >
-        下一块
+        <span>下一块</span>
+        <PixelIcon name="arrow-right" />
       </button>
     </div>
   </div>
@@ -130,6 +133,9 @@ function isDone(index: number): boolean {
 }
 
 .part-stepper button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   padding: 0.4rem 0.9rem;
   border: var(--border-pixel) solid var(--color-border);
   border-radius: var(--radius-lg);
