@@ -101,12 +101,18 @@ img.dialog-preview {
   justify-content: center;
   gap: var(--space-6);
   color: var(--color-text-muted);
+  font-size: 1.05rem;
 }
 
 .dialog-stats li {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.45rem;
+}
+
+.dialog-stats .pixel-icon {
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
 }
 
 .dialog-actions {
@@ -119,14 +125,20 @@ img.dialog-preview {
 .dialog-actions button {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 1rem;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
   border: 2px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: transparent;
   color: var(--color-text);
   font: inherit;
+  font-size: var(--action-font);
   cursor: pointer;
+}
+
+.dialog-actions .pixel-icon {
+  width: var(--icon-size);
+  height: var(--icon-size);
 }
 
 .dialog-actions button.primary {

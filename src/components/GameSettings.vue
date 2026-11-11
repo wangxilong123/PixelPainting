@@ -55,13 +55,18 @@ const { soundEnabled, showRemaining, immersive, toggleSound, toggleRemaining, to
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  font-size: 0.9rem;
+  font-size: 1rem;
   cursor: pointer;
 }
 
+.setting-row .pixel-icon {
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
+}
+
 .setting-row input {
-  width: 1rem;
-  height: 1rem;
+  width: 1.1rem;
+  height: 1.1rem;
   accent-color: var(--color-primary);
 }
 
@@ -69,14 +74,19 @@ const { soundEnabled, showRemaining, immersive, toggleSound, toggleRemaining, to
   align-self: flex-end;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.3rem 0.9rem;
+  gap: 0.5rem;
+  padding: 0.4rem 1rem;
   border: 2px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: transparent;
   color: var(--color-text);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   cursor: pointer;
+}
+
+.settings-close .pixel-icon {
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
 }
 </style>

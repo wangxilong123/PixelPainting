@@ -405,9 +405,14 @@ function backToList(): void {
   background: var(--color-surface);
   color: var(--color-text-muted);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   cursor: pointer;
   opacity: 0.7;
+}
+
+.immersive-exit .pixel-icon {
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
 }
 
 .immersive-exit:hover {
@@ -434,15 +439,22 @@ function backToList(): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.9rem;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
   border: var(--border-pixel) solid var(--color-border);
   border-radius: var(--radius-lg);
   background: transparent;
   color: var(--color-text);
   font: inherit;
+  font-size: var(--action-font);
   cursor: pointer;
   transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.game-bar button .pixel-icon,
+.game-controls button .pixel-icon {
+  width: var(--icon-size);
+  height: var(--icon-size);
 }
 
 .game-bar button:hover:not(:disabled),

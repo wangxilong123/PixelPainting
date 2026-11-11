@@ -41,11 +41,11 @@ function activate(): void {
     </span>
     <span class="level-status">
       <span v-if="!unlocked" class="level-badge">
-        <PixelIcon name="lock" :size="12" />
+        <PixelIcon name="lock" />
         <span>锁定</span>
       </span>
       <span v-else-if="completed" class="level-badge done">
-        <PixelIcon name="check" :size="12" />
+        <PixelIcon name="check" />
         <span>已完成</span>
       </span>
     </span>
@@ -120,7 +120,7 @@ img.level-preview {
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  min-height: 1.5rem;
+  min-height: 1.75rem;
 }
 
 .level-title {
@@ -135,12 +135,17 @@ img.level-preview {
 .level-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.75rem;
-  padding: 0.1rem 0.5rem;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.6rem;
   border-radius: 999px;
   border: 1px solid var(--color-border);
   color: var(--color-text-muted);
+}
+
+.level-badge .pixel-icon {
+  width: var(--icon-badge-size);
+  height: var(--icon-badge-size);
 }
 
 .level-badge.done {

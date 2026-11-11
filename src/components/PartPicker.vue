@@ -135,14 +135,20 @@ function isDone(index: number): boolean {
 .part-stepper button {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.9rem;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
   border: var(--border-pixel) solid var(--color-border);
   border-radius: var(--radius-lg);
   background: transparent;
   color: var(--color-text);
   font: inherit;
+  font-size: var(--action-font);
   cursor: pointer;
+}
+
+.part-stepper button .pixel-icon {
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
 }
 
 .part-stepper button:disabled {
@@ -152,7 +158,7 @@ function isDone(index: number): boolean {
 
 .part-position {
   color: var(--color-text-muted);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-variant-numeric: tabular-nums;
 }
 
