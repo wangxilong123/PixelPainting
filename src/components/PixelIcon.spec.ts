@@ -1,20 +1,20 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import { iconPaths, type IconName } from './icons'
-import { normalizeIconSvg, resolveIcon } from './iconSvg'
+import { iconFiles, normalizeIconSvg, resolveIcon } from './iconSvg'
 import PixelIcon from './PixelIcon.vue'
 
 const names = Object.keys(iconPaths) as IconName[]
 
 describe('PixelIcon', () => {
   it('renders the placeholder paths with currentColor and crisp edges', () => {
-    const wrapper = mount(PixelIcon, { props: { name: 'undo' } })
+    const wrapper = mount(PixelIcon, { props: { name: 'reset-view' } })
     const svg = wrapper.get('svg')
 
     expect(svg.attributes('fill')).toBe('currentColor')
     expect(svg.attributes('shape-rendering')).toBe('crispEdges')
     expect(svg.attributes('aria-hidden')).toBe('true')
-    expect(wrapper.findAll('path').map((path) => path.attributes('d'))).toEqual([...iconPaths.undo])
+    expect(wrapper.findAll('path').map((path) => path.attributes('d'))).toEqual([...iconPaths['reset-view']])
   })
 
   it('sizes the svg from the size prop and defaults to 16', () => {
@@ -72,7 +72,40 @@ describe('normalizeIconSvg', () => {
   })
 
   it('falls back to the placeholder paths while no file has been dropped in', () => {
-    expect(resolveIcon('warn').crisp).toBe(true)
-    expect(resolveIcon('warn').body).toContain(iconPaths.warn[0])
+    expect(resolveIcon('reset-view').crisp).toBe(true)
+    expect(resolveIcon('reset-view').body).toContain(iconPaths['reset-view'][0])
+  })
+})
+
+describe('dropped-in icon files', () => {
+  // 所有者上传的 18 个文件（docs/assets/icons 原件拷贝，grid_on/grid_off 改名连字符）
+  const uploaded: IconName[] = [
+    'arrow-left', 'arrow-right', 'check', 'clock', 'close', 'compress', 'expand',
+    'grid-off', 'grid-on', 'hint', 'lock', 'redo', 'replay', 'settings',
+    'sound-off', 'sound-on', 'undo', 'warn',
+  ]
+
+  it('wires every uploaded file to its icon name', () => {
+    for (const name of uploaded) expect(iconFiles[name], name).toBeDefined()
+  })
+
+  it('renders uploaded files as themeable vector paint, not placeholder pixels', () => {
+    for (const name of uploaded) {
+      const source = resolveIcon(name)
+      expect(source.crisp, name).toBe(false)
+      expect(source.viewBox, name).toBe('0 0 1024 1024')
+      expect(source.body, name).toContain('<path')
+      expect(source.body, name).not.toMatch(/#[0-9a-fA-F]{3,8}/)
+      expect(source.body, name).not.toContain('<script')
+    }
+  })
+
+  it('mounts an uploaded icon at the requested size with the file viewBox', () => {
+    const wrapper = mount(PixelIcon, { props: { name: 'hint', size: 20 } })
+    const svg = wrapper.get('svg')
+    expect(svg.attributes('viewBox')).toBe('0 0 1024 1024')
+    expect(svg.attributes('width')).toBe('20')
+    expect(svg.attributes('shape-rendering')).toBeUndefined()
+    expect(wrapper.get('path').attributes('fill')).toBe('currentColor')
   })
 })
