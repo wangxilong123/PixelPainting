@@ -141,6 +141,11 @@ img.dialog-preview {
   height: var(--icon-size);
 }
 
+/* 主按钮是浅底深字，图标必须跟着反色，语义色会糊在亮底上 */
+.dialog-actions button.primary .pixel-icon {
+  color: inherit;
+}
+
 .dialog-actions button.primary {
   border-color: var(--color-primary);
   background: var(--color-primary);

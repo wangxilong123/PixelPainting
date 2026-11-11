@@ -17,6 +17,7 @@ const source = computed(() => resolveIcon(props.name))
 <template>
   <svg
     class="pixel-icon"
+    :data-name="name"
     :width="size"
     :height="size"
     :viewBox="source.viewBox"

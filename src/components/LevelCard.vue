@@ -146,6 +146,8 @@ img.level-preview {
 .level-badge .pixel-icon {
   width: var(--icon-badge-size);
   height: var(--icon-badge-size);
+  /* 徽标自带锁定灰/完成琥珀，图标跟徽标走 */
+  color: inherit;
 }
 
 .level-badge.done {

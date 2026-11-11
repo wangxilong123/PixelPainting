@@ -14,7 +14,12 @@ describe('PixelIcon', () => {
     expect(svg.attributes('fill')).toBe('currentColor')
     expect(svg.attributes('shape-rendering')).toBe('crispEdges')
     expect(svg.attributes('aria-hidden')).toBe('true')
+    expect(svg.attributes('data-name')).toBe('reset-view')
     expect(wrapper.findAll('path').map((path) => path.attributes('d'))).toEqual([...iconPaths['reset-view']])
+  })
+
+  it('exposes the icon name for the semantic color selectors', () => {
+    expect(mount(PixelIcon, { props: { name: 'hint' } }).get('svg').attributes('data-name')).toBe('hint')
   })
 
   it('sizes the svg from the size prop and defaults to 16', () => {

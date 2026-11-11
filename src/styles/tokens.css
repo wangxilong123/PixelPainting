@@ -22,6 +22,13 @@
   --icon-size-sm: 1.25rem;
   --icon-badge-size: 0.875rem;
   --action-font: 1.1rem;
+  /* 图标语义色旋钮：按图标名上色（global.css），想换色改这里 */
+  --icon-hint: var(--color-primary);
+  --icon-edit: var(--color-focus);
+  --icon-fresh: #7ce38b;
+  --icon-view: #b8a9f5;
+  --icon-toggle: #6fd3c9;
+  --icon-danger: var(--color-danger);
   --font-ui: system-ui, "Segoe UI", sans-serif;
   --transition-fast: 120ms ease-out;
 }

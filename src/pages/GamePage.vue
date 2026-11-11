@@ -413,6 +413,8 @@ function backToList(): void {
 .immersive-exit .pixel-icon {
   width: var(--icon-size-sm);
   height: var(--icon-size-sm);
+  /* 角落里的退出按钮保持安静，不抢语义色 */
+  color: inherit;
 }
 
 .immersive-exit:hover {
@@ -472,6 +474,11 @@ function backToList(): void {
 .game-controls button.danger {
   border-color: var(--color-danger);
   color: var(--color-danger);
+}
+
+/* 危险按钮整体已经是红色，图标跟按钮走，不叠语义色 */
+.game-controls button.danger .pixel-icon {
+  color: inherit;
 }
 
 /* 进度条占满一整行，压在顶栏底部，不额外吃画布空间 */

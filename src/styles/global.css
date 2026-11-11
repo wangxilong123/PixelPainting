@@ -94,6 +94,32 @@ h2 {
   }
 }
 
+/* 图标语义色：:where() 保持零优先级，组件里的语境色（danger/primary/徽标/沉浸退出）
+   用普通选择器就能覆盖回 inherit；颜色旋钮在 tokens.css 的 --icon-* */
+:where(.pixel-icon[data-name="hint"]) {
+  color: var(--icon-hint);
+}
+
+:where(.pixel-icon[data-name="undo"], .pixel-icon[data-name="redo"], .pixel-icon[data-name="clock"]) {
+  color: var(--icon-edit);
+}
+
+:where(.pixel-icon[data-name="replay"], .pixel-icon[data-name="check"]) {
+  color: var(--icon-fresh);
+}
+
+:where(.pixel-icon[data-name="settings"], .pixel-icon[data-name="expand"], .pixel-icon[data-name="compress"], .pixel-icon[data-name="reset-view"]) {
+  color: var(--icon-view);
+}
+
+:where(.pixel-icon[data-name="sound-on"], .pixel-icon[data-name="sound-off"], .pixel-icon[data-name="grid-on"], .pixel-icon[data-name="grid-off"]) {
+  color: var(--icon-toggle);
+}
+
+:where(.pixel-icon[data-name="warn"]) {
+  color: var(--icon-danger);
+}
+
 /* 减少动态效果：位移和过渡都压掉，状态本身照常切换 */
 @media (prefers-reduced-motion: reduce) {
   *,
