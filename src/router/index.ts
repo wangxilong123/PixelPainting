@@ -2,6 +2,8 @@ import { createRouter, createWebHistory, type RouterHistory } from 'vue-router'
 import MaterialsPage from '../pages/MaterialsPage.vue'
 import LevelSelectPage from '../pages/LevelSelectPage.vue'
 import GamePage from '../pages/GamePage.vue'
+import CollectionsPage from '../pages/CollectionsPage.vue'
+import CollectionDetailPage from '../pages/CollectionDetailPage.vue'
 import PlaceholderPage from '../pages/PlaceholderPage.vue'
 
 export function createAppRouter(
@@ -33,8 +35,13 @@ export function createAppRouter(
       {
         path: '/collections',
         name: 'collections',
-        component: PlaceholderPage,
+        component: CollectionsPage,
         meta: { title: '合集', icon: 'collections' },
+      },
+      {
+        path: '/collections/:collectionId',
+        name: 'collection-detail',
+        component: CollectionDetailPage,
       },
       {
         path: '/studio',

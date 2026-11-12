@@ -57,7 +57,7 @@ describe('App', () => {
   })
 
   it('serves the upcoming sections from placeholder pages', async () => {
-    for (const [path, title] of [['/collections', '合集'], ['/studio', '制作像素图'], ['/profile', '个人中心']]) {
+    for (const [path, title] of [['/studio', '制作像素图'], ['/profile', '个人中心']]) {
       const { wrapper, router } = await mountApp(path)
       try {
         expect(router.currentRoute.value.meta.title).toBe(title)
@@ -67,6 +67,26 @@ describe('App', () => {
       } finally {
         wrapper.unmount()
       }
+    }
+  })
+
+  it('serves the collections section with a list and a detail route', async () => {
+    const list = await mountApp('/collections')
+    try {
+      expect(list.router.currentRoute.value.name).toBe('collections')
+      expect(list.wrapper.get('main').text()).toContain('合集')
+      expect(list.wrapper.findAll('.collection-card').length).toBeGreaterThan(0)
+    } finally {
+      list.wrapper.unmount()
+    }
+
+    const detail = await mountApp('/collections/col-animals')
+    try {
+      expect(detail.router.currentRoute.value.name).toBe('collection-detail')
+      expect(detail.router.currentRoute.value.params.collectionId).toBe('col-animals')
+      expect(detail.wrapper.get('main').text()).toContain('动物伙伴')
+    } finally {
+      detail.wrapper.unmount()
     }
   })
 

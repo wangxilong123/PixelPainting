@@ -1,7 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { presetArtworks } from '../data/artworks'
+import { presetCollections } from '../data/collections'
+import type { Collection } from '../models/collection'
 import { getLevels } from './levelService'
-import { getArtworkById, searchArtworks } from './artworkService'
+import {
+  artworkMatchesQuery,
+  getArtworkById,
+  getCollectionById,
+  searchArtworks,
+  searchCollections,
+} from './artworkService'
 
 describe('artwork registry', () => {
   it('registers the preset levels as artworks with ids of their own', () => {
@@ -66,5 +74,74 @@ describe('searchArtworks', () => {
     expect(result.items).toHaveLength(1)
     expect(result.total).toBe(2)
     expect(result.items[0].id).toBe(presetArtworks[7].id)
+  })
+})
+
+describe('artworkMatchesQuery', () => {
+  it('matches everything on an empty query and folds title and tag case', () => {
+    const fox = getArtworkById('art-006')!
+    expect(artworkMatchesQuery(fox, '')).toBe(true)
+    expect(artworkMatchesQuery(fox, '   ')).toBe(true)
+    expect(artworkMatchesQuery(fox, '狐狸')).toBe(true)
+    expect(artworkMatchesQuery(fox, 'FOX')).toBe(true)
+    expect(artworkMatchesQuery(fox, '不存在的关键词')).toBe(false)
+  })
+})
+
+describe('collection registry', () => {
+  it('registers collections with unique ids that reference known artworks', () => {
+    expect(presetCollections.length).toBeGreaterThan(0)
+    expect(new Set(presetCollections.map((entry) => entry.id)).size).toBe(presetCollections.length)
+    const known = new Set(presetArtworks.map((artwork) => artwork.id))
+    for (const collection of presetCollections) {
+      expect(collection.tags.length).toBeGreaterThan(0)
+      for (const artworkId of collection.artworkIds) {
+        expect(known.has(artworkId)).toBe(true)
+      }
+    }
+  })
+})
+
+describe('searchCollections', () => {
+  it('returns every collection in registration order for an empty query', () => {
+    expect(searchCollections('')).toEqual([...presetCollections])
+    expect(searchCollections('   ')).toEqual([...presetCollections])
+  })
+
+  it('matches collection titles and tags', () => {
+    expect(searchCollections('动物').map((entry) => entry.id)).toEqual(['col-animals'])
+    expect(searchCollections('甜点').map((entry) => entry.id)).toEqual(['col-food'])
+    expect(searchCollections('入门').map((entry) => entry.id)).toEqual(['col-starter'])
+    expect(searchCollections('分块').map((entry) => entry.id)).toEqual(['col-big'])
+    expect(searchCollections('不存在的关键词')).toEqual([])
+  })
+})
+
+describe('getCollectionById', () => {
+  it('returns the collection with its artworks in artworkIds order', () => {
+    const result = getCollectionById('col-animals')
+    expect(result?.collection.id).toBe('col-animals')
+    expect(result?.artworks.map((artwork) => artwork.id))
+      .toEqual(['art-001', 'art-006', 'art-007', 'art-008'])
+  })
+
+  it('returns undefined for unknown collection ids', () => {
+    expect(getCollectionById('col-999')).toBeUndefined()
+    expect(getCollectionById('art-001')).toBeUndefined()
+  })
+
+  it('returns an empty artwork list for a collection with no members', async () => {
+    vi.resetModules()
+    vi.doMock('../data/collections', async (importOriginal) => {
+      const actual = await importOriginal<{ presetCollections: readonly Collection[] }>()
+      const empty: Collection = { id: 'col-empty', title: '空合集', tags: ['空'], cover: '', artworkIds: [] }
+      return { presetCollections: [...actual.presetCollections, empty] }
+    })
+    const { getCollectionById: lookup } = await import('./artworkService')
+    const result = lookup('col-empty')
+    expect(result?.collection.id).toBe('col-empty')
+    expect(result?.artworks).toEqual([])
+    vi.doUnmock('../data/collections')
+    vi.resetModules()
   })
 })
