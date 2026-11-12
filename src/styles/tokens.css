@@ -22,6 +22,15 @@
   --icon-size-sm: 1.25rem;
   --icon-badge-size: 0.875rem;
   --action-font: 1.1rem;
+  /* 文字字号旋钮：页面标题、品牌、侧栏导航、分类筛选、卡片标题、辅助说明、标签、窄屏标签栏 */
+  --font-page-title: 1.75rem;
+  --font-brand: 1.5rem;
+  --font-nav: 1.05rem;
+  --font-chip: 1rem;
+  --font-card-title: 1.1rem;
+  --font-meta: 0.95rem;
+  --font-tag: 0.85rem;
+  --font-tabbar: 0.8rem;
   /* 图标语义色旋钮：按图标名上色（global.css），想换色改这里 */
   --icon-hint: var(--color-primary);
   --icon-edit: var(--color-focus);

@@ -36,6 +36,10 @@ const icon = computed<IconName>(() => (route.meta.icon as IconName | undefined) 
   height: 3rem;
 }
 
+.placeholder-page h2 {
+  font-size: var(--font-page-title);
+}
+
 .placeholder-page p {
   margin: 0;
   color: var(--color-text-muted);

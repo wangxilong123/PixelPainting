@@ -591,7 +591,7 @@ function backToList(): void {
 }
 
 .game-title {
-  font-size: 1.1rem;
+  font-size: var(--font-card-title);
   margin: 0;
 }
 

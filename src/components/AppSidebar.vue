@@ -58,7 +58,7 @@ function isActive(to: string): boolean {
 }
 
 .sidebar-brand {
-  font-size: 1.25rem;
+  font-size: var(--font-brand);
 }
 
 .sidebar-brand a {
@@ -80,6 +80,7 @@ function isActive(to: string): boolean {
   border: 2px solid transparent;
   border-radius: var(--radius-lg);
   color: var(--color-text-muted);
+  font-size: var(--font-nav);
   text-decoration: none;
   transition: border-color var(--transition-fast), background-color var(--transition-fast),
     color var(--transition-fast);
@@ -133,7 +134,7 @@ function isActive(to: string): boolean {
     gap: 0.15rem;
     padding: 0.3rem 0.1rem;
     border-width: 1px;
-    font-size: 0.7rem;
+    font-size: var(--font-tabbar);
     text-align: center;
   }
 

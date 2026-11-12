@@ -46,7 +46,7 @@ h2 {
 }
 
 .app-header h1 {
-  font-size: 1.15rem;
+  font-size: var(--font-brand);
 }
 
 .app-header-mobile {

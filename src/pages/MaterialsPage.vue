@@ -53,6 +53,10 @@ const totalPages = computed(() => Math.max(1, Math.ceil(result.value.total / pag
   gap: var(--space-2);
 }
 
+.materials-head h2 {
+  font-size: var(--font-page-title);
+}
+
 .materials-intro {
   margin: 0;
   color: var(--color-text-muted);
@@ -61,7 +65,7 @@ const totalPages = computed(() => Math.max(1, Math.ceil(result.value.total / pag
 .materials-count {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: 0.85rem;
+  font-size: var(--font-meta);
 }
 
 .artwork-grid {

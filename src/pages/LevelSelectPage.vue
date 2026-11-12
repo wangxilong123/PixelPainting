@@ -76,7 +76,7 @@ function open(levelId: string): void {
 }
 
 .stat {
-  font-size: 0.85rem;
+  font-size: var(--font-meta);
   color: var(--color-text-muted);
 }
 
@@ -93,7 +93,7 @@ function open(levelId: string): void {
   background: transparent;
   color: var(--color-text-muted);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: var(--font-chip);
   cursor: pointer;
   transition: border-color var(--transition-fast), color var(--transition-fast);
 }

@@ -125,10 +125,11 @@ img.level-preview {
 
 .level-title {
   font-weight: 600;
+  font-size: var(--font-card-title);
 }
 
 .level-meta {
-  font-size: 0.8rem;
+  font-size: var(--font-meta);
   color: var(--color-text-muted);
 }
 
@@ -136,7 +137,7 @@ img.level-preview {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.85rem;
+  font-size: var(--font-chip);
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
   border: 1px solid var(--color-border);

@@ -83,11 +83,12 @@ const cellCount = computed(() => getInteractiveCellCount(props.artwork))
 
 .card-title {
   font-weight: 600;
+  font-size: var(--font-card-title);
 }
 
 .card-meta {
   color: var(--color-text-muted);
-  font-size: 0.85rem;
+  font-size: var(--font-meta);
   font-variant-numeric: tabular-nums;
 }
 
@@ -102,6 +103,6 @@ const cellCount = computed(() => getInteractiveCellCount(props.artwork))
   border: 1px solid var(--color-border);
   border-radius: 999px;
   color: var(--color-text-muted);
-  font-size: 0.75rem;
+  font-size: var(--font-tag);
 }
 </style>
