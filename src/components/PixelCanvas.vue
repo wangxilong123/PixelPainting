@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { createPixelCanvas, type PaintResult, type PaintStatus, type PixelCanvasController } from '../canvas/pixelCanvas'
+import { createPixelCanvas, type PaintResult, type PaintStatus, type PartOverview, type PixelCanvasController } from '../canvas/pixelCanvas'
 import { createDefaultViewport } from '../canvas/viewport'
 import type { PixelArtwork } from '../models/artwork'
 import type { LevelViewport } from '../models/level'
@@ -14,7 +14,9 @@ const props = defineProps<{
   viewport?: LevelViewport
   hintIndex?: number | null
   part?: PartRect | null
+  overview?: PartOverview | null
   autoFit?: boolean
+  animate?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -61,6 +63,8 @@ function mountController(): void {
   // 先按块复位视口，再套用存档里的视口：恢复同一块时玩家的缩放平移优先
   controller.setPart(props.part ?? null)
   controller.setViewport(props.viewport ?? createDefaultViewport())
+  // 预览态最后套：整图适配优先于存档视口，预览位置从来不是玩家调出来的
+  controller.setOverview(props.overview ?? null)
 }
 
 onMounted(mountController)
@@ -68,7 +72,8 @@ onBeforeUnmount(() => controller?.destroy())
 watch(() => props.level, mountController)
 watch(() => props.selectedColorId, (color) => controller?.setSelectedColor(color))
 watch(() => props.hintIndex, (index) => controller?.setHint(index ?? null))
-watch(() => props.part, (part) => controller?.setPart(part ?? null))
+watch(() => props.part, (part) => controller?.setPart(part ?? null, props.animate))
+watch(() => props.overview, (overview) => controller?.setOverview(overview ?? null, props.animate))
 watch(() => props.viewport, (viewport) => controller?.setViewport(viewport ?? createDefaultViewport()))
 watch(() => props.readPainted(), () => controller?.invalidate())
 

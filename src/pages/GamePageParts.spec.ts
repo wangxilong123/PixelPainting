@@ -10,7 +10,7 @@ vi.mock('../services/audioService', () => ({
 }))
 
 // 注册表末尾追加一个 8×8 的分块关卡：四块的可交互格数是 16/8/8/16，
-// 1、2 号色只出现在第 1、4 块，3 号色只出现在第 2、3 块，方便验证提示不跨块乱指
+// 1、2 号色只出现在第 1、4 块，3 号色只出现在第 2、3 块，方便验证调色板和提示都按块隔离
 vi.mock('../data/levels', async (importOriginal) => {
   const actual = await importOriginal<{ presetLevels: readonly Level[] }>()
   const rows = ['11220033', '11220033', '22113300', '22113300',
@@ -57,7 +57,9 @@ function createCanvasStub() {
       viewport: { type: Object, default: undefined },
       hintIndex: { type: Number, default: null },
       part: { type: Object, default: null },
+      overview: { type: Object, default: null },
       autoFit: { type: Boolean, default: false },
+      animate: { type: Boolean, default: false },
     },
     emits: ['paint', 'progress', 'completed', 'viewport-change'],
     template: '<div class="canvas-stub" />',
@@ -82,6 +84,13 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+async function chunkedLevel(): Promise<Level> {
+  const { presetLevels } = await import('../data/levels')
+  const level = presetLevels.find((entry) => entry.id === chunkedId)
+  if (!level) throw new Error('缺少分块测试关卡')
+  return level
+}
+
 async function seedOthersCompleted() {
   const { createEmptyProgress, saveProgressSnapshot } = await import('../services/progressService')
   const { getLevels } = await import('../services/levelService')
@@ -100,9 +109,11 @@ async function seedOthersCompleted() {
   saveProgressSnapshot({ currentId: null, records })
 }
 
-async function mountGame(partIndex?: number) {
+type Seed = { painted?: number[]; partIndex?: number }
+
+async function mountGame(seed?: Seed) {
   await seedOthersCompleted()
-  if (partIndex !== undefined) {
+  if (seed) {
     const { loadProgressSnapshot, saveProgressSnapshot } = await import('../services/progressService')
     const snapshot = loadProgressSnapshot()
     saveProgressSnapshot({
@@ -111,11 +122,11 @@ async function mountGame(partIndex?: number) {
         ...snapshot.records,
         [chunkedId]: {
           levelId: chunkedId,
-          painted: Array(64).fill(0),
+          painted: seed.painted ?? Array(64).fill(0),
           elapsedSeconds: 0,
           hintsUsed: 0,
           startedAt: completedAt,
-          partIndex,
+          partIndex: seed.partIndex,
         },
       },
     })
@@ -146,135 +157,256 @@ function button(wrapper: VueWrapper<any>, text: string) {
   return found
 }
 
-function paintAllTargets(canvas: VueWrapper<any>): void {
+// 只涂某一块里的目标格，模拟玩家在这块里涂满
+function paintPart(canvas: VueWrapper<any>, partIndex: number): void {
   const level = canvas.props('level') as Level
   const readPainted = canvas.props('readPainted') as () => readonly number[]
   const commitPaint = canvas.props('commitPaint') as (index: number, colorId: number) => string
-  for (const [index, color] of level.cells.entries()) {
-    if (color !== 0 && readPainted()[index] === 0) commitPaint(index, color)
+  const rect = partRects[partIndex]
+  for (let row = rect.y; row < rect.y + rect.height; row += 1) {
+    for (let column = rect.x; column < rect.x + rect.width; column += 1) {
+      const index = row * level.width + column
+      const color = level.cells[index]
+      if (color !== 0 && readPainted()[index] === 0) commitPaint(index, color)
+    }
   }
 }
 
+// 与真实画布一致：涂完后报一次进度，整幅涂满再报完成
+function emitProgress(canvas: VueWrapper<any>): void {
+  const level = canvas.props('level') as Level
+  const painted = (canvas.props('readPainted') as () => readonly number[])()
+  let paintedCount = 0
+  let total = 0
+  for (const [index, color] of level.cells.entries()) {
+    if (color === 0) continue
+    total += 1
+    if (painted[index] === color) paintedCount += 1
+  }
+  canvas.vm.$emit('progress', { paintedCount, total })
+  if (paintedCount === total) canvas.vm.$emit('completed')
+}
+
+function swatch(wrapper: VueWrapper<any>, colorId: number) {
+  return wrapper.find(`.color-swatch[aria-label="颜色 ${colorId}"]`)
+}
+
 describe('GamePage chunked painting', () => {
-  it('shows the part bar with whole-level counts and hands the viewed part to the canvas', async () => {
+  it('opens on the whole-image overview instead of a single part', async () => {
     const { wrapper, stub } = await mountGame()
     try {
-      expect(wrapper.findAll('.part-count').map((node) => node.text()))
-        .toEqual(['0/16', '0/8', '0/8', '0/16'])
+      expect(wrapper.find('.part-overview').exists()).toBe(true)
+      expect(wrapper.find('.part-overview-status').text()).toBe('已完成 0 / 4 块 · 下一块：第 1 块')
+      expect(button(wrapper, '开始涂色').exists()).toBe(true)
+      expect(wrapper.find('.part-picker').exists()).toBe(false)
+      expect(wrapper.find('.color-palette').exists()).toBe(false)
+      expect(wrapper.find('.game-controls').exists()).toBe(false)
       expect(wrapper.find('.game-stat').text()).toContain('已填 0 / 48')
-      expect(wrapper.findComponent(stub).props('part')).toEqual(partRects[0])
-      expect(wrapper.findAll('.part-cell')[0].classes()).toContain('current')
+
+      const canvas = wrapper.findComponent(stub)
+      expect(canvas.props('part')).toBeNull()
+      expect(canvas.props('overview')).toEqual({
+        parts: partRects, done: [false, false, false, false], next: 0,
+      })
+      expect(canvas.props('animate')).toBe(true)
     } finally {
       wrapper.unmount()
     }
   })
 
-  it('switches the viewed part and keeps it across a reload', async () => {
+  it('starts painting at the first part with a palette scoped to that part', async () => {
     const { wrapper, stub } = await mountGame()
     try {
-      await wrapper.findAll('.part-cell')[3].trigger('click')
+      await button(wrapper, '开始涂色').trigger('click')
       await flushPromises()
-      expect(wrapper.findComponent(stub).props('part')).toEqual(partRects[3])
-      expect(wrapper.findAll('.part-cell')[3].classes()).toContain('current')
+
+      expect(wrapper.find('.part-overview').exists()).toBe(false)
+      expect(wrapper.find('.game-controls').exists()).toBe(true)
+      const canvas = wrapper.findComponent(stub)
+      expect(canvas.props('part')).toEqual(partRects[0])
+      expect(canvas.props('overview')).toBeNull()
       const progress = await session()
-      expect(progress.currentProgress.value?.partIndex).toBe(3)
-    } finally {
-      wrapper.unmount()
-    }
+      expect(progress.currentProgress.value?.partIndex).toBe(0)
 
-    const reloaded = await mountGame()
-    try {
-      expect(reloaded.wrapper.findComponent(reloaded.stub).props('part')).toEqual(partRects[3])
-      expect(reloaded.wrapper.findAll('.part-cell')[3].classes()).toContain('current')
-    } finally {
-      reloaded.wrapper.unmount()
-    }
-  })
-
-  it('restores the saved part when entering the level again', async () => {
-    const { wrapper, stub } = await mountGame(2)
-    try {
-      expect(wrapper.findComponent(stub).props('part')).toEqual(partRects[2])
-      expect(wrapper.findAll('.part-cell')[2].attributes('aria-current')).toBe('true')
+      // 第 1 块只有 1、2 号色各 8 格；3 号色这块没有，直接禁用
+      expect(swatch(wrapper, 1).find('.swatch-count').text()).toBe('8')
+      expect(swatch(wrapper, 2).find('.swatch-count').text()).toBe('8')
+      expect(swatch(wrapper, 3).find('.swatch-count').text()).toBe('0')
+      expect(swatch(wrapper, 3).attributes('disabled')).toBeDefined()
+      expect(swatch(wrapper, 1).attributes('aria-pressed')).toBe('true')
     } finally {
       wrapper.unmount()
     }
   })
 
-  it('hints inside the viewed part and centers the cell without switching', async () => {
+  it('returns to the preview after finishing a part and advances with the next button', async () => {
+    const { wrapper, stub } = await mountGame()
+    try {
+      await button(wrapper, '开始涂色').trigger('click')
+      await flushPromises()
+      const canvas = wrapper.findComponent(stub)
+      paintPart(canvas, 0)
+      emitProgress(canvas)
+      await flushPromises()
+
+      expect(wrapper.find('.part-overview').exists()).toBe(true)
+      expect(wrapper.find('.part-overview-status').text()).toBe('已完成 1 / 4 块 · 下一块：第 2 块')
+      expect(button(wrapper, '下一块').exists()).toBe(true)
+      expect(wrapper.find('.color-palette').exists()).toBe(false)
+      expect(wrapper.find('.game-stat').text()).toContain('已填 16 / 48')
+      expect(canvas.props('part')).toBeNull()
+      expect(canvas.props('overview')).toEqual({
+        parts: partRects, done: [true, false, false, false], next: 1,
+      })
+      const { playPaintSound } = await import('../services/audioService')
+      expect(playPaintSound).toHaveBeenCalledWith('complete')
+
+      await button(wrapper, '下一块').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('.part-overview').exists()).toBe(false)
+      expect(canvas.props('part')).toEqual(partRects[1])
+      expect(canvas.props('overview')).toBeNull()
+      const progress = await session()
+      expect(progress.currentProgress.value?.partIndex).toBe(1)
+
+      // 第 2 块只有 3 号色：1、2 号色禁用，选中色自动切到 3
+      expect(swatch(wrapper, 1).attributes('disabled')).toBeDefined()
+      expect(swatch(wrapper, 2).attributes('disabled')).toBeDefined()
+      expect(swatch(wrapper, 3).find('.swatch-count').text()).toBe('8')
+      expect(swatch(wrapper, 3).attributes('aria-pressed')).toBe('true')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('continues at the first unfinished part regardless of the saved part index', async () => {
+    const level = await chunkedLevel()
+    const painted = Array(64).fill(0)
+    const rect = partRects[0]
+    for (let row = rect.y; row < rect.y + rect.height; row += 1) {
+      for (let column = rect.x; column < rect.x + rect.width; column += 1) {
+        const index = row * level.width + column
+        painted[index] = level.cells[index]
+      }
+    }
+    painted[6] = 3
+    const { wrapper, stub } = await mountGame({ painted, partIndex: 3 })
+    try {
+      expect(wrapper.find('.part-overview-status').text()).toBe('已完成 1 / 4 块 · 下一块：第 2 块')
+      expect(button(wrapper, '继续涂色').exists()).toBe(true)
+      expect(wrapper.find('.game-stat').text()).toContain('已填 17 / 48')
+      expect(wrapper.findComponent(stub).props('overview')).toEqual({
+        parts: partRects, done: [true, false, false, false], next: 1,
+      })
+
+      await button(wrapper, '继续涂色').trigger('click')
+      await flushPromises()
+      expect(wrapper.findComponent(stub).props('part')).toEqual(partRects[1])
+      const progress = await session()
+      expect(progress.currentProgress.value?.partIndex).toBe(1)
+      expect(swatch(wrapper, 3).find('.swatch-count').text()).toBe('7')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('keeps hints inside the current part instead of jumping to another one', async () => {
     const { wrapper, stub, centerOnCell } = await mountGame()
     try {
+      await button(wrapper, '开始涂色').trigger('click')
+      await flushPromises()
       await button(wrapper, '提示').trigger('click')
       await flushPromises()
 
       const progress = await session()
-      expect(progress.currentProgress.value?.partIndex ?? 0).toBe(0)
+      expect(progress.currentProgress.value?.partIndex).toBe(0)
       expect(progress.currentProgress.value?.hintsUsed).toBe(1)
       expect(wrapper.findComponent(stub).props('hintIndex')).toBe(0)
       expect(centerOnCell).toHaveBeenCalledExactlyOnceWith(0)
-    } finally {
-      wrapper.unmount()
-    }
-  })
 
-  it('moves to the part that holds the selected color instead of hinting an invisible cell', async () => {
-    const { wrapper, stub, centerOnCell } = await mountGame()
-    try {
-      // 3 号色只存在于第 2、3 块，当前第 1 块里没有
-      await wrapper.findAll('.color-swatch')[2].trigger('click')
-      await flushPromises()
-      await button(wrapper, '提示').trigger('click')
-      await flushPromises()
-
-      const progress = await session()
-      expect(progress.currentProgress.value?.partIndex).toBe(1)
+      // 3 号色只存在于第 2、3 块：当前块里找不到就返回 undefined，不跨块
+      expect(progress.recordHint(3)).toBeUndefined()
       expect(progress.currentProgress.value?.hintsUsed).toBe(1)
-      expect(wrapper.findComponent(stub).props('part')).toEqual(partRects[1])
-      expect(wrapper.findComponent(stub).props('hintIndex')).toBe(6)
-      expect(centerOnCell).not.toHaveBeenCalled()
+      expect(progress.currentProgress.value?.partIndex).toBe(0)
     } finally {
       wrapper.unmount()
     }
   })
 
-  it('drops the hint of the previous part when switching by hand', async () => {
-    const { wrapper, stub } = await mountGame()
-    try {
-      await button(wrapper, '提示').trigger('click')
-      await flushPromises()
-      expect(wrapper.findComponent(stub).props('hintIndex')).toBe(0)
-
-      await wrapper.findAll('.part-cell')[1].trigger('click')
-      await flushPromises()
-      expect(wrapper.findComponent(stub).props('hintIndex')).toBeNull()
-    } finally {
-      wrapper.unmount()
+  it('shows the completion dialog over the preview and replays from the overview', async () => {
+    const level = await chunkedLevel()
+    const painted = [...level.cells]
+    const rect = partRects[3]
+    for (let row = rect.y; row < rect.y + rect.height; row += 1) {
+      for (let column = rect.x; column < rect.x + rect.width; column += 1) {
+        painted[row * level.width + column] = 0
+      }
     }
-  })
-
-  it('returns to the first part on restart and still settles on the whole image', async () => {
-    const { wrapper, stub } = await mountGame(3)
+    const { wrapper, stub } = await mountGame({ painted })
     try {
+      expect(wrapper.find('.part-overview-status').text()).toBe('已完成 3 / 4 块 · 下一块：第 4 块')
+      await button(wrapper, '继续涂色').trigger('click')
+      await flushPromises()
       const canvas = wrapper.findComponent(stub)
-      paintAllTargets(canvas)
-      canvas.vm.$emit('progress', { paintedCount: 48, total: 48 })
-      canvas.vm.$emit('completed')
+      expect(canvas.props('part')).toEqual(partRects[3])
+
+      paintPart(canvas, 3)
+      emitProgress(canvas)
       await flushPromises()
 
       expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
-      expect(wrapper.findAll('.part-count').map((node) => node.text()))
-        .toEqual(['16/16', '8/8', '8/8', '16/16'])
-      expect(wrapper.find('.game-stat').text()).toContain('已填 48 / 48')
-      expect(wrapper.find('.game-progress').attributes('aria-valuenow')).toBe('48')
+      expect(wrapper.find('.part-overview').exists()).toBe(true)
+      expect(wrapper.find('.part-overview-status').text()).toBe('全部 4 块已完成')
+      expect(button(wrapper, '再玩一次').exists()).toBe(true)
+      expect(canvas.props('overview')).toEqual({
+        parts: partRects, done: [true, true, true, true], next: null,
+      })
+      const { playPaintSound } = await import('../services/audioService')
+      expect(vi.mocked(playPaintSound).mock.calls.filter(([kind]) => kind === 'complete')).toHaveLength(1)
+
+      await button(wrapper, '再玩一次').trigger('click')
+      await button(wrapper, '确认重新开始').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+      expect(wrapper.find('.part-overview-status').text()).toBe('已完成 0 / 4 块 · 下一块：第 1 块')
+      expect(button(wrapper, '开始涂色').exists()).toBe(true)
+      const progress = await session()
+      expect(progress.currentProgress.value?.partIndex).toBeUndefined()
+      expect(progress.currentProgress.value?.painted).toEqual(Array(64).fill(0))
+      expect(canvas.props('part')).toBeNull()
+      expect(canvas.props('overview')).toEqual({
+        parts: partRects, done: [false, false, false, false], next: 0,
+      })
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('returns to the overview when restarting mid-part', async () => {
+    const { wrapper, stub } = await mountGame()
+    try {
+      await button(wrapper, '开始涂色').trigger('click')
+      await flushPromises()
+      const canvas = wrapper.findComponent(stub)
+      const commitPaint = canvas.props('commitPaint') as (index: number, colorId: number) => string
+      commitPaint(0, 1)
+      emitProgress(canvas)
+      await flushPromises()
+      expect(wrapper.find('.game-stat').text()).toContain('已填 1 / 48')
 
       await button(wrapper, '重新开始').trigger('click')
       await button(wrapper, '确认重新开始').trigger('click')
       await flushPromises()
 
-      const progress = await session()
-      expect(progress.currentProgress.value?.partIndex).toBeUndefined()
-      expect(wrapper.findComponent(stub).props('part')).toEqual(partRects[0])
-      expect(wrapper.findComponent(stub).props('hintIndex')).toBeNull()
+      expect(wrapper.find('.part-overview').exists()).toBe(true)
+      expect(button(wrapper, '开始涂色').exists()).toBe(true)
+      expect(wrapper.find('.game-stat').text()).toContain('已填 0 / 48')
+      expect(canvas.props('part')).toBeNull()
+      expect(canvas.props('overview')).toEqual({
+        parts: partRects, done: [false, false, false, false], next: 0,
+      })
+      expect(canvas.props('hintIndex')).toBeNull()
     } finally {
       wrapper.unmount()
     }

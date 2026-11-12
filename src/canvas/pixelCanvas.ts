@@ -15,6 +15,13 @@ export type PaintResult =
   | { status: 'ignored'; index?: number }
   | { status: 'painted' | 'incorrect'; index: number; colorId: number }
 
+/** 整图预览：画整张图并叠分块边界，done 按 part.index 取，next 是要涂的下一块 */
+export type PartOverview = {
+  parts: readonly PartRect[]
+  done: readonly boolean[]
+  next: number | null
+}
+
 export type PixelCanvasOptions = {
   canvas: HTMLCanvasElement
   level: PixelArtwork
@@ -33,7 +40,8 @@ export type PixelCanvasController = {
   panBy(deltaX: number, deltaY: number): void
   resetViewport(): void
   setViewport(viewport: LevelViewport): void
-  setPart(rect: PartRect | null): void
+  setPart(rect: PartRect | null, animate?: boolean): void
+  setOverview(overview: PartOverview | null, animate?: boolean): void
   setHint(index: number | null): void
   centerOnCell(index: number): void
   invalidate(): void
@@ -47,10 +55,22 @@ const fitScaleMax = 2
 const singleDigitFont = 12
 const doubleDigitFont = 9
 const minLabelPixels = 6
+const transitionDuration = 480
 const emptyFill = '#f1f0f8'
 const emptyChannels = [241, 240, 248]
 const tintStrength = 0.22
 type Gesture = 'pending' | 'paint' | 'pan' | 'pinch' | 'blocked'
+
+type ViewportAnimation = {
+  from: LevelViewport
+  to: LevelViewport
+  start: number
+  duration: number
+}
+
+function easeInOutCubic(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2
+}
 
 function labelFont(target: number): number {
   return target >= 10 ? doubleDigitFont : singleDigitFont
@@ -88,6 +108,8 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
   const emptyFills = new Map(level.palette.map((color) => [color.id, tintTowardsEmpty(color.hex)]))
   let viewport = createDefaultViewport()
   let part: PartRect | null = null
+  let overview: PartOverview | null = null
+  let animation: ViewportAnimation | undefined
   let selectedColor: number | null = null
   let hintIndex: number | null = null
   let errorIndex: number | null = null
@@ -101,6 +123,8 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
   let touchGesture = false
   let touchOrigin: Point | undefined
   let userAdjusted = false
+  const reducedMotion = typeof globalThis.matchMedia === 'function'
+    && globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches
 
   // 分块只是绘制和命中的裁剪范围，格子坐标和 index 仍然按整图算
   function activePart(): PartRect {
@@ -134,10 +158,40 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
   }
 
   function activeViewport(): LevelViewport {
+    if (animation) {
+      const t = Math.min(1, (performance.now() - animation.start) / animation.duration)
+      const eased = easeInOutCubic(t)
+      return {
+        scale: animation.from.scale + (animation.to.scale - animation.from.scale) * eased,
+        offsetX: animation.from.offsetX + (animation.to.offsetX - animation.from.offsetX) * eased,
+        offsetY: animation.from.offsetY + (animation.to.offsetY - animation.from.offsetY) * eased,
+      }
+    }
     return (autoFit && !userAdjusted ? fitViewport() : null) ?? viewport
   }
 
+  // 整图预览和分块之间切换时平滑缩放过去；适配视口是程序推出来的，不上报存档。
+  // from 必须在改 part/overview 之前取：自动适配的起点是旧状态的适配位置，
+  // 改完再取就和终点重合，补间永远不会跑
+  function startTransition(from: LevelViewport, target: LevelViewport, animate: boolean): void {
+    userAdjusted = false
+    viewport = target
+    const same = from.scale === target.scale && from.offsetX === target.offsetX
+      && from.offsetY === target.offsetY
+    animation = !animate || reducedMotion || same ? undefined : {
+      from, to: target, start: performance.now(), duration: transitionDuration,
+    }
+    invalidate()
+  }
+
   function beginUserViewport(): void {
+    // 补间进行中：接管当前插值位置，不能再被适配位置覆盖
+    if (animation) {
+      viewport = activeViewport()
+      animation = undefined
+      userAdjusted = true
+      return
+    }
     if (userAdjusted) return
     const fit = autoFit ? fitViewport() : null
     if (fit) viewport = fit
@@ -185,6 +239,8 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
           ? palette.get(target) ?? emptyFill
           : emptyFills.get(target) ?? emptyFill
         context.fillRect(x, y, cellSize, cellSize)
+        // 预览是成品视角：不描网格、不写编号，结构交给分块覆盖层
+        if (overview) continue
         // 涂满的格子不再描边，成品是一整块干净的画；网格线只留在没涂的格子上
         if (filled) continue
         context.lineWidth = 1 / view.scale
@@ -204,6 +260,59 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
         if (index === errorIndex) highlight(x, y, '#d12b42', 2, view.scale)
       }
     }
+
+    if (overview) drawOverview(view)
+  }
+
+  // 分块覆盖层：边界线屏幕恒定粗细，完成的块打勾，下一块描亮边并标块号
+  function drawOverview(view: LevelViewport): void {
+    if (!context || !overview) return
+    const scale = view.scale
+    for (const rect of overview.parts) {
+      const x = rect.x * cellSize
+      const y = rect.y * cellSize
+      const width = rect.width * cellSize
+      const height = rect.height * cellSize
+      const isNext = rect.index === overview.next
+      const isDone = overview.done[rect.index] ?? false
+
+      if (isNext) {
+        context.strokeStyle = 'rgba(255, 204, 102, 0.28)'
+        context.lineWidth = 8 / scale
+        context.strokeRect(x, y, width, height)
+      }
+      context.strokeStyle = isNext ? '#ffcc66' : isDone ? 'rgba(124, 227, 139, 0.65)' : '#6a6a99'
+      context.lineWidth = (isNext ? 2.5 : 1.5) / scale
+      context.strokeRect(x, y, width, height)
+
+      if (isDone || isNext) drawPartBadge(x + width, y, rect.index + 1, isDone, scale)
+    }
+  }
+
+  function drawPartBadge(right: number, top: number, label: number, done: boolean, scale: number): void {
+    if (!context) return
+    const radius = 10 / scale
+    const cx = right - radius - 6 / scale
+    const cy = top + radius + 6 / scale
+    context.beginPath()
+    context.arc(cx, cy, radius, 0, Math.PI * 2)
+    context.fillStyle = done ? '#7ce38b' : '#ffcc66'
+    context.fill()
+    if (done) {
+      context.strokeStyle = '#11111b'
+      context.lineWidth = 2 / scale
+      context.lineCap = 'round'
+      context.lineJoin = 'round'
+      context.beginPath()
+      context.moveTo(cx - 4.5 / scale, cy + 0.5 / scale)
+      context.lineTo(cx - 1.5 / scale, cy + 3.5 / scale)
+      context.lineTo(cx + 5 / scale, cy - 4 / scale)
+      context.stroke()
+    } else {
+      context.fillStyle = '#11111b'
+      context.font = `600 ${11 / scale}px system-ui, sans-serif`
+      context.fillText(String(label), cx, cy + 0.5 / scale, radius * 2 - 4 / scale)
+    }
   }
 
   function highlight(x: number, y: number, color: string, width: number, scale: number): void {
@@ -213,21 +322,32 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
     context.strokeRect(x + 2, y + 2, cellSize - 4, cellSize - 4)
   }
 
+  function tick(): void {
+    frame = undefined
+    draw()
+    if (animation) {
+      if (performance.now() - animation.start >= animation.duration) {
+        animation = undefined
+      } else {
+        frame = requestAnimationFrame(tick)
+        return
+      }
+    }
+    if (viewportChanged) {
+      viewportChanged = false
+      onViewportChange?.({ ...viewport })
+    }
+  }
+
   function invalidate(): void {
     if (destroyed || !context || frame !== undefined) return
-    frame = requestAnimationFrame(() => {
-      frame = undefined
-      draw()
-      if (viewportChanged) {
-        viewportChanged = false
-        onViewportChange?.({ ...viewport })
-      }
-    })
+    frame = requestAnimationFrame(tick)
   }
 
   function updateViewport(next: LevelViewport, userChange: boolean): void {
     if (destroyed || (next.scale === viewport.scale && next.offsetX === viewport.offsetX
       && next.offsetY === viewport.offsetY)) return
+    animation = undefined
     viewport = next
     viewportChanged = userChange
     invalidate()
@@ -268,7 +388,7 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
   }
 
   function paintAt(screenX: number, screenY: number): PaintResult {
-    if (destroyed || !context) return { status: 'ignored' }
+    if (destroyed || !context || overview) return { status: 'ignored' }
     const { width, height } = canvas.getBoundingClientRect()
     if (screenX < 0 || screenY < 0 || screenX >= width || screenY >= height) {
       return { status: 'ignored' }
@@ -330,6 +450,8 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
   }
 
   function pointerDown(event: PointerEvent): void {
+    // 整图预览只看不涂，手势整个放行给页面
+    if (overview) return
     const touch = event.pointerType === 'touch'
     if (pointers.has(event.pointerId)) return
     if (pointers.size > 0 && (!touchGesture || !touch)) return
@@ -405,6 +527,7 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
   }
 
   function wheel(event: WheelEvent): void {
+    if (overview) return
     const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2
       ? canvas.getBoundingClientRect().height : 1
     if (!Number.isFinite(event.deltaY) || event.deltaY === 0) return
@@ -457,10 +580,22 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
       updateViewport(normalized, false)
     },
     // 换块时视口回到该块的适配位置，玩家手动调过的缩放和平移不跨块保留
-    setPart(rect) {
+    setPart(rect, animate = false) {
+      const from = activeViewport()
       part = rect
-      userAdjusted = false
-      updateViewport(fitViewport() ?? createDefaultViewport(), false)
+      startTransition(from, fitViewport() ?? createDefaultViewport(), animate)
+    },
+    // 进入整图预览：画整张图、叠分块边界；退出预览只清状态，视口交给 setPart 接管
+    setOverview(next, animate = false) {
+      const from = activeViewport()
+      overview = next
+      if (!next) {
+        invalidate()
+        return
+      }
+      part = null
+      hintIndex = null
+      startTransition(from, fitViewport() ?? createDefaultViewport(), animate)
     },
     setHint(index) {
       hintIndex = index

@@ -67,10 +67,13 @@ function setup(
   const context = {
     setTransform: vi.fn(), translate: vi.fn(), scale: vi.fn(), fillRect: vi.fn(),
     strokeRect: vi.fn(), fillText: vi.fn(), fillStyle: '', font: '',
+    beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(),
+    stroke: vi.fn(), strokeStyle: '', lineWidth: 0, lineCap: '', lineJoin: '',
   }
   const fills: string[] = []
   const fonts: string[] = []
   context.fillRect.mockImplementation(() => fills.push(context.fillStyle))
+  context.fill.mockImplementation(() => fills.push(context.fillStyle))
   context.fillText.mockImplementation(() => fonts.push(context.font))
   vi.spyOn(canvas, 'getContext').mockReturnValue(context as unknown as CanvasRenderingContext2D)
   const disconnect = vi.fn()
@@ -491,5 +494,121 @@ describe('pixel canvas parts', () => {
     part.draw()
     expect(part.context.scale).toHaveBeenLastCalledWith(0.5, 0.5)
     part.controller.destroy()
+  })
+})
+
+describe('pixel canvas overview', () => {
+  const overviewOf = (done: boolean[], next: number | null) => ({
+    parts: getPartRects(chunked), done, next,
+  })
+
+  it('draws the whole image flat with part borders, done checks and a next badge', () => {
+    const view = setup([1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'painted', true, chunked)
+    view.controller.setSelectedColor(1)
+    view.controller.setOverview(overviewOf([true, false, false, false], 1))
+    view.draw()
+
+    // 整图适配：scale 2，偏移 (54, 4)；涂过的格子直接上成品色
+    expect(view.context.translate).toHaveBeenLastCalledWith(54, 4)
+    expect(view.fills).toContain('#AABBCC')
+    expect(view.fills).toContain('#FFEEDD')
+    // 预览不描 cell 网格、不写编号、不高亮选中色：strokeRect 只剩 4 块边界（下一块多一层光晕）
+    expect(view.context.strokeRect).toHaveBeenCalledTimes(5)
+    expect(view.context.strokeRect).toHaveBeenCalledWith(0, 0, 48, 48)
+    expect(view.context.strokeRect).toHaveBeenCalledWith(48, 0, 48, 48)
+    expect(view.context.strokeRect).toHaveBeenCalledWith(0, 48, 48, 48)
+    expect(view.context.strokeRect).toHaveBeenCalledWith(48, 48, 48, 48)
+    // 唯一的文字是下一块角标里的块号
+    expect(view.context.fillText.mock.calls.map(([text]) => text)).toEqual(['2'])
+    expect(view.fonts).toEqual(['600 5.5px system-ui, sans-serif'])
+    // 完成块打勾、下一块标号：圆徽半径 10/scale=5，圆心在块右上角内缩 8
+    expect(view.context.arc).toHaveBeenCalledWith(40, 8, 5, 0, Math.PI * 2)
+    expect(view.context.arc).toHaveBeenCalledWith(88, 8, 5, 0, Math.PI * 2)
+    expect(view.context.moveTo).toHaveBeenCalledWith(37.75, 8.25)
+    expect(view.context.lineTo).toHaveBeenCalledWith(39.25, 9.75)
+    expect(view.context.lineTo).toHaveBeenCalledWith(42.5, 6)
+    expect(view.fills).toContain('#7ce38b')
+    expect(view.fills).toContain('#ffcc66')
+    view.controller.destroy()
+  })
+
+  it('blocks painting and gestures while previewing and lets the wheel scroll the page', () => {
+    const view = setup(Array(16).fill(0), 'painted', true, chunked)
+    view.controller.setOverview(overviewOf([false, false, false, false], 0))
+    view.controller.setSelectedColor(1)
+    expect(view.controller.paintAt(126, 76).status).toBe('ignored')
+
+    pointer(view.canvas, 'pointerdown', 126, 76)
+    pointer(view.canvas, 'pointermove', 150, 76)
+    pointer(view.canvas, 'pointerup', 150, 76)
+    pointer(view.canvas, 'pointerdown', 12, 12, { button: 1 })
+    pointer(view.canvas, 'pointermove', 30, 20)
+    pointer(view.canvas, 'pointerup', 30, 20, { button: 1 })
+    view.draw()
+    expect(view.commitPaint).not.toHaveBeenCalled()
+    expect(view.onPaint).not.toHaveBeenCalled()
+    expect(view.onViewportChange).not.toHaveBeenCalled()
+
+    const wheel = new WheelEvent('wheel', { deltaY: -100, cancelable: true })
+    view.canvas.dispatchEvent(wheel)
+    expect(wheel.defaultPrevented).toBe(false)
+    view.draw()
+    expect(view.onViewportChange).not.toHaveBeenCalled()
+
+    // 退出预览回到分块涂色：编号回来了，块内能涂
+    view.controller.setPart(getPartRects(chunked)[0])
+    view.controller.setOverview(null)
+    view.context.fillText.mockClear()
+    view.draw()
+    expect(view.context.fillText).toHaveBeenCalledTimes(4)
+    expect(view.controller.paintAt(126, 76)).toEqual({ status: 'painted', index: 0, colorId: 1 })
+    view.controller.destroy()
+  })
+
+  it('tweens between the whole image and a part without saving, and a pan cancels it', () => {
+    const view = setup(Array(16).fill(0), 'painted', true, chunked)
+    const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+    view.draw()
+    expect(view.context.translate).toHaveBeenLastCalledWith(54, 4)
+
+    // 整图 (2,54,4) → 第 1 块 (2,102,52)，480ms 缓动
+    view.controller.setPart(getPartRects(chunked)[0], true)
+    now.mockReturnValue(1240)
+    view.draw()
+    expect(view.context.translate).toHaveBeenLastCalledWith(78, 28)
+    expect(view.onViewportChange).not.toHaveBeenCalled()
+    now.mockReturnValue(1480)
+    view.draw()
+    expect(view.context.translate).toHaveBeenLastCalledWith(102, 52)
+    expect(view.onViewportChange).not.toHaveBeenCalled()
+
+    // 回预览：第 1 块 → 整图；中途玩家一平移就接管当前插值并取消补间
+    view.controller.setOverview(overviewOf([false, false, false, false], 0), true)
+    now.mockReturnValue(1720)
+    view.draw()
+    expect(view.context.translate).toHaveBeenLastCalledWith(78, 28)
+    view.controller.panBy(2, 1)
+    view.draw()
+    expect(view.onViewportChange).toHaveBeenCalledExactlyOnceWith({ scale: 2, offsetX: 80, offsetY: 29 })
+    now.mockReturnValue(3000)
+    view.draw()
+    expect(view.context.translate).toHaveBeenLastCalledWith(80, 29)
+    expect(view.onViewportChange).toHaveBeenCalledTimes(1)
+    view.controller.destroy()
+  })
+
+  it('skips the tween when reduced motion is preferred', () => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })))
+    const view = setup(Array(16).fill(0), 'painted', true, chunked)
+    view.draw()
+    view.controller.setPart(getPartRects(chunked)[0], true)
+    view.draw()
+    expect(view.context.translate).toHaveBeenLastCalledWith(102, 52)
+    view.controller.setOverview(overviewOf([false, false, false, false], 0), true)
+    view.draw()
+    expect(view.context.translate).toHaveBeenLastCalledWith(54, 4)
+    // 每次切换只排一帧，没有补间续帧
+    expect(view.request).toHaveBeenCalledTimes(3)
+    view.controller.destroy()
   })
 })

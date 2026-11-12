@@ -166,20 +166,15 @@ export function useLevelProgress() {
     const progress = attempt.value
     if (!level || !progress || progress.completedAt || colorId === null) return
 
-    // 只挑当前选中色的未涂格，而且必须在玩家正看着的那一块里，否则提示指向看不见的格子；
-    // 这块没有该色的空格才顺延到别的块并跟着切过去，避免提示按钮点了没反应
+    // 引导式分块一次只涂一块：提示只在当前块里找选中色的未涂格，
+    // 这块没有就返回 undefined，不能把玩家带去别的块
     const rects = getPartRects(level)
-    const current = progress.partIndex ?? 0
-    for (let offset = 0; offset < rects.length; offset += 1) {
-      const index = (current + offset) % rects.length
-      const cell = findHintCell(level, rects[index], colorId, progress.painted)
-      if (cell === -1) continue
+    const current = Math.min(progress.partIndex ?? 0, rects.length - 1)
+    const cell = findHintCell(level, rects[current], colorId, progress.painted)
+    if (cell === -1) return
 
-      const updated: LevelProgress = { ...progress, hintsUsed: progress.hintsUsed + 1 }
-      if (index !== current) updated.partIndex = index
-      saveAttempt(updated)
-      return cell
-    }
+    saveAttempt({ ...progress, hintsUsed: progress.hintsUsed + 1 })
+    return cell
   }
 
   function setElapsedSeconds(seconds: number): void {
