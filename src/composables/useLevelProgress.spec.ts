@@ -199,6 +199,7 @@ describe('useLevelProgress', () => {
     progress.restartLevel()
     expect(progress.currentProgress.value).toEqual({
       levelId: first.id,
+      source: 'level',
       painted: first.cells.map(() => 0),
       elapsedSeconds: 0,
       hintsUsed: 0,
@@ -224,8 +225,8 @@ describe('useLevelProgress', () => {
   it('keeps the result of a restored completed attempt that has no best result yet', async () => {
     const { createEmptyProgress, saveProgressSnapshot } = await import('../services/progressService')
     saveProgressSnapshot({
-      currentLevelId: first.id,
-      levels: {
+      currentId: first.id,
+      records: {
         [first.id]: {
           ...createEmptyProgress(first),
           painted: [...first.cells],

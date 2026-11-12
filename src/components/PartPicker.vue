@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Level } from '../models/level'
+import type { PixelArtwork } from '../models/artwork'
 import { normalizeParts, type PartRect } from '../services/levelService'
 import PixelIcon from './PixelIcon.vue'
 
 const props = defineProps<{
-  level: Level
+  level: PixelArtwork
   parts: PartRect[]
   painted: readonly number[]
   partIndex: number

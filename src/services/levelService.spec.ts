@@ -15,6 +15,7 @@ import {
 const sample: Level = {
   id: 'test-level',
   title: '测试关卡',
+  tags: [],
   category: 'animal',
   difficulty: 1,
   width: 3,

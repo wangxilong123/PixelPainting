@@ -142,7 +142,7 @@ describe('imageToLevel', () => {
     })
 
     expect(level.order).toBeUndefined()
-    expect(level.tags).toBeUndefined()
+    expect(level.tags).toEqual([])
     expect(level.parts).toBeUndefined()
     expect('thumbnail' in level).toBe(false)
     expect(level.cells).toEqual([1])

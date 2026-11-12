@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Level } from '../models/level'
+import type { PixelArtwork } from '../models/artwork'
 import PixelPreview from './PixelPreview.vue'
 import PixelIcon from './PixelIcon.vue'
 
@@ -9,7 +9,8 @@ const props = defineProps<{
   elapsedSeconds: number
   hintsUsed: number
   nextLevelId?: string
-  level?: Level
+  level?: PixelArtwork
+  title?: string
 }>()
 
 const emit = defineEmits<{ next: []; replay: []; back: [] }>()
@@ -23,8 +24,8 @@ const time = computed(() => {
 
 <template>
   <div v-if="open" class="dialog-backdrop">
-    <div role="dialog" aria-modal="true" aria-label="关卡结算" class="completion-dialog">
-      <h2>关卡完成！</h2>
+    <div role="dialog" aria-modal="true" aria-label="涂色结算" class="completion-dialog">
+      <h2>{{ title ?? '关卡完成！' }}</h2>
       <img
         v-if="level?.thumbnail"
         class="dialog-preview"

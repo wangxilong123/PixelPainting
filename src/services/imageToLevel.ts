@@ -145,7 +145,7 @@ export function imageToLevel(source: PixelSource, meta: LevelMeta): Level {
     cells,
     parts: meta.parts,
     order: meta.order,
-    tags: meta.tags,
+    tags: meta.tags ?? [],
     source: meta.source ?? 'preset',
   }
 }

@@ -6,6 +6,7 @@ import { createPixelCanvas, type PaintStatus } from './pixelCanvas'
 const level: Level = {
   id: 'test',
   title: '测试',
+  tags: [],
   category: 'animal',
   difficulty: 1,
   width: 3,
@@ -20,6 +21,7 @@ const level: Level = {
 const chunked: Level = {
   id: 'chunked',
   title: '分块',
+  tags: [],
   category: 'animal',
   difficulty: 3,
   width: 4,
@@ -36,6 +38,7 @@ function solid(width: number, height: number, parts?: LevelParts): Level {
   return {
     id: 'solid',
     title: '大图',
+    tags: [],
     category: 'animal',
     difficulty: 3,
     width,

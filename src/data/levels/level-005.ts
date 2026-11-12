@@ -4,6 +4,7 @@ import type { Level } from '../../models/level'
 export const level005: Level = {
   id: 'level-005',
   title: '火箭',
+  tags: ['科技', '太空', 'rocket'],
   category: 'tech',
   difficulty: 2,
   width: 64,

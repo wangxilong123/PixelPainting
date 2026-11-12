@@ -18,6 +18,7 @@ vi.mock('../data/levels', async (importOriginal) => {
   const chunked: Level = {
     id: 'level-chunked',
     title: '分块测试',
+    tags: [],
     category: 'other',
     difficulty: 3,
     width: 8,
@@ -96,7 +97,7 @@ async function seedOthersCompleted() {
       bestResult: { completedAt, elapsedSeconds: 42, hintsUsed: 0 },
     }
   }
-  saveProgressSnapshot({ currentLevelId: null, levels: records })
+  saveProgressSnapshot({ currentId: null, records })
 }
 
 async function mountGame(partIndex?: number) {
@@ -105,9 +106,9 @@ async function mountGame(partIndex?: number) {
     const { loadProgressSnapshot, saveProgressSnapshot } = await import('../services/progressService')
     const snapshot = loadProgressSnapshot()
     saveProgressSnapshot({
-      currentLevelId: chunkedId,
-      levels: {
-        ...snapshot.levels,
+      currentId: chunkedId,
+      records: {
+        ...snapshot.records,
         [chunkedId]: {
           levelId: chunkedId,
           painted: Array(64).fill(0),

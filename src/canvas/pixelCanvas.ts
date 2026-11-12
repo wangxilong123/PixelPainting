@@ -1,4 +1,5 @@
-import type { Level, LevelViewport } from '../models/level'
+import type { PixelArtwork } from '../models/artwork'
+import type { LevelViewport } from '../models/level'
 import type { PartRect } from '../services/levelService'
 import { cellsAlongSegment, screenToCell, screenToWorld, type Cell, type Point } from '../utils/coordinates'
 import {
@@ -16,7 +17,7 @@ export type PaintResult =
 
 export type PixelCanvasOptions = {
   canvas: HTMLCanvasElement
-  level: Level
+  level: PixelArtwork
   readPainted: () => readonly number[]
   commitPaint: (index: number, colorId: number) => PaintStatus
   onPaint?: (result: PaintResult) => void

@@ -14,6 +14,7 @@ const rows = [
 export const level001: Level = {
   id: 'level-001',
   title: '橘猫',
+  tags: ['动物', '猫', '可爱', 'cat'],
   category: 'animal',
   difficulty: 1,
   width: 8,

@@ -7,6 +7,7 @@ import { getPartRects } from '../services/levelService'
 const level: Level = {
   id: 'chunked',
   title: '分块',
+  tags: [],
   category: 'animal',
   difficulty: 3,
   width: 4,

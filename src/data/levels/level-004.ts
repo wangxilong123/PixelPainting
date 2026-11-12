@@ -4,6 +4,7 @@ import type { Level } from '../../models/level'
 export const level004: Level = {
   id: 'level-004',
   title: '甜甜圈',
+  tags: ['食物', '甜点', 'donut'],
   category: 'food',
   difficulty: 2,
   width: 48,

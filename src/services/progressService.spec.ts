@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { presetArtworks } from '../data/artworks'
 import type { Level, LevelProgress } from '../models/level'
 import { getLevelById, getLevels } from './levelService'
 import { createEmptyProgress, getLevelSummary, isLevelComplete, isLevelUnlocked } from './progressService'
@@ -6,6 +7,7 @@ import { createEmptyProgress, getLevelSummary, isLevelComplete, isLevelUnlocked 
 const sample: Level = {
   id: 'test-level',
   title: '测试关卡',
+  tags: [],
   category: 'animal',
   difficulty: 1,
   width: 3,
@@ -28,12 +30,14 @@ describe('progress rules', () => {
     const progress = createEmptyProgress(sample)
     expect(progress).toEqual({
       levelId: sample.id,
+      source: 'level',
       painted: [0, 0, 0, 0, 0, 0],
       elapsedSeconds: 0,
       hintsUsed: 0,
       viewport: { scale: 1, offsetX: 0, offsetY: 0 },
     })
     expect(createEmptyProgress(sample).painted).not.toBe(progress.painted)
+    expect(createEmptyProgress(sample, 'artwork').source).toBe('artwork')
   })
 
   it('completes only when every interactive cell is painted', () => {
@@ -68,6 +72,14 @@ describe('progress rules', () => {
       [first.id]: { ...replay, bestResult: { ...bestResult, completedAt: 'invalid' } },
     }, second.id)).toBe(false)
   })
+
+  it('does not let artwork progress unlock or count levels', () => {
+    const levels = getLevels()
+    const [artwork] = presetArtworks
+    const doneArtwork = { ...createEmptyProgress(artwork, 'artwork'), painted: [...artwork.cells], completedAt }
+    expect(isLevelUnlocked(levels, { [artwork.id]: doneArtwork }, levels[1].id)).toBe(false)
+    expect(getLevelSummary({ [artwork.id]: doneArtwork })).toEqual({ total: levels.length, completed: 0 })
+  })
 })
 
 describe('getLevelSummary', () => {
@@ -94,10 +106,10 @@ describe('getLevelSummary', () => {
   })
 })
 
-describe('local progress snapshots', () => {
-  const key = 'pixel-painting:v1:progress'
+describe('local progress snapshots (v2)', () => {
+  const key = 'pixel-painting:v2:progress'
   const [first, second] = getLevels()
-  const empty = { currentLevelId: null, levels: {} }
+  const empty = { currentId: null, records: {} }
 
   beforeEach(() => {
     localStorage.clear()
@@ -122,7 +134,7 @@ describe('local progress snapshots', () => {
       ...completedProgress(second),
       bestResult: { completedAt, elapsedSeconds: 0, hintsUsed: 0 },
     }
-    const snapshot = { currentLevelId: first.id, levels: { [first.id]: progress, [second.id]: done } }
+    const snapshot = { currentId: first.id, records: { [first.id]: progress, [second.id]: done } }
 
     service.saveProgressSnapshot(snapshot)
     expect(JSON.parse(localStorage.getItem(key)!)).toEqual(snapshot)
@@ -131,7 +143,17 @@ describe('local progress snapshots', () => {
     expect(reloaded.loadProgressSnapshot()).toEqual(snapshot)
   })
 
-  it.each(['{invalid', '[]', '{"currentLevelId":null,"levels":null}', '{"levels":{}}'])(
+  it('round-trips artwork records with their source', async () => {
+    const service = await import('./progressService')
+    const [artwork] = presetArtworks
+    const progress = { ...createEmptyProgress(artwork, 'artwork'), elapsedSeconds: 7 }
+    service.saveProgressSnapshot({ currentId: artwork.id, records: { [artwork.id]: progress } })
+    vi.resetModules()
+    const reloaded = await import('./progressService')
+    expect(reloaded.loadProgressSnapshot()).toEqual({ currentId: artwork.id, records: { [artwork.id]: progress } })
+  })
+
+  it.each(['{invalid', '[]', '{"currentId":null,"records":null}', '{"records":{}}'])(
     'ignores invalid snapshots %s',
     async (raw) => {
       const service = await import('./progressService')
@@ -153,59 +175,25 @@ describe('local progress snapshots', () => {
       if (field === 'missing completion') invalid.painted = [...first.cells]
 
       localStorage.setItem(key, JSON.stringify({
-        currentLevelId: 'unknown',
-        levels: { [first.id]: invalid, [second.id]: healthy },
+        currentId: 'unknown',
+        records: { [first.id]: invalid, [second.id]: healthy },
       }))
       expect(service.loadProgressSnapshot()).toEqual({
-        currentLevelId: null,
-        levels: { [second.id]: healthy },
+        currentId: null,
+        records: { [second.id]: healthy },
       })
     },
   )
 
-  it('ignores the star rating left over in an older save', async () => {
-    const service = await import('./progressService')
-    const expected: LevelProgress = {
-      ...completedProgress(first),
-      hintsUsed: 2,
-      bestResult: { completedAt, elapsedSeconds: 20, hintsUsed: 2 },
-    }
-    localStorage.setItem(key, JSON.stringify({
-      currentLevelId: null,
-      levels: { [first.id]: { ...expected, stars: 3 } },
-    }))
-    expect(service.loadProgress()[first.id]).toEqual(expected)
-  })
-
-  it('moves progress saved under the pre-rename level ids to the new ids', async () => {
-    const service = await import('./progressService')
-    const donut = getLevelById('level-004')
-    const rocket = getLevelById('level-005')
-    if (!donut || !rocket) throw new Error('fixture levels missing')
-    localStorage.setItem(key, JSON.stringify({
-      currentLevelId: 'level-009',
-      levels: {
-        'level-005': { ...completedProgress(donut), levelId: 'level-005' },
-        'level-009': { ...completedProgress(rocket), levelId: 'level-009' },
-      },
-    }))
-
-    const snapshot = service.loadProgressSnapshot()
-    expect(snapshot.currentLevelId).toBe('level-005')
-    expect(Object.keys(snapshot.levels).sort()).toEqual(['level-004', 'level-005'])
-    expect(isLevelComplete(donut, snapshot.levels['level-004'])).toBe(true)
-    expect(isLevelComplete(rocket, snapshot.levels['level-005'])).toBe(true)
-  })
-
   it('keeps the save and the completion rules of an unchunked level unchanged', async () => {
     const service = await import('./progressService')
     const progress: LevelProgress = { ...createEmptyProgress(first), partIndex: 0 }
-    service.saveProgressSnapshot({ currentLevelId: first.id, levels: { [first.id]: progress } })
+    service.saveProgressSnapshot({ currentId: first.id, records: { [first.id]: progress } })
 
     expect(createEmptyProgress(first)).not.toHaveProperty('partIndex')
     expect(service.loadProgressSnapshot()).toEqual({
-      currentLevelId: first.id,
-      levels: { [first.id]: progress },
+      currentId: first.id,
+      records: { [first.id]: progress },
     })
     expect(isLevelComplete(first, progress)).toBe(false)
     expect(isLevelComplete(first, completedProgress(first))).toBe(true)
@@ -225,8 +213,8 @@ describe('local progress snapshots', () => {
     const index = chunked.cells.findIndex((color) => color !== 0)
     base.painted[index] = chunked.cells[index]
     const write = (partIndex: number) => localStorage.setItem(key, JSON.stringify({
-      currentLevelId: chunked.id,
-      levels: { [chunked.id]: { ...base, partIndex } },
+      currentId: chunked.id,
+      records: { [chunked.id]: { ...base, partIndex } },
     }))
 
     write(4)
@@ -257,15 +245,115 @@ describe('local progress snapshots', () => {
       vi.restoreAllMocks()
       expect(service.loadProgress()).toEqual({ [first.id]: updated })
       service.saveProgress({ [first.id]: { ...updated, elapsedSeconds: 20 } })
-      expect(JSON.parse(localStorage.getItem(key)!).levels[first.id].elapsedSeconds).toBe(20)
+      expect(JSON.parse(localStorage.getItem(key)!).records[first.id].elapsedSeconds).toBe(20)
     },
   )
 
-  it('preserves the current level when only the progress map is saved', async () => {
+  it('preserves the current work when only the progress map is saved', async () => {
     const service = await import('./progressService')
-    service.saveProgressSnapshot({ currentLevelId: first.id, levels: {} })
-    const levels = { [first.id]: createEmptyProgress(first) }
-    service.saveProgress(levels)
-    expect(service.loadProgressSnapshot()).toEqual({ currentLevelId: first.id, levels })
+    service.saveProgressSnapshot({ currentId: first.id, records: {} })
+    const records = { [first.id]: createEmptyProgress(first) }
+    service.saveProgress(records)
+    expect(service.loadProgressSnapshot()).toEqual({ currentId: first.id, records })
+  })
+})
+
+describe('v1 to v2 migration', () => {
+  const v1Key = 'pixel-painting:v1:progress'
+  const v2Key = 'pixel-painting:v2:progress'
+  const [first, second] = getLevels()
+
+  beforeEach(() => {
+    localStorage.clear()
+    vi.resetModules()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('moves a v1 save to the v2 key keeping progress, viewport and part index', async () => {
+    const service = await import('./progressService')
+    const chunked = getLevelById('level-008')
+    if (!chunked) throw new Error('fixture level missing')
+    const progress = {
+      ...createEmptyProgress(first),
+      elapsedSeconds: 19,
+      hintsUsed: 2,
+      viewport: { scale: 2, offsetX: -18, offsetY: 12 },
+    }
+    const index = first.cells.findIndex((color) => color !== 0)
+    progress.painted[index] = first.cells[index]
+    const chunkedProgress = {
+      ...createEmptyProgress(chunked),
+      partIndex: 4,
+      viewport: { scale: 0.65, offsetX: 4, offsetY: -2 },
+    }
+    const legacy = {
+      currentLevelId: first.id,
+      levels: { [first.id]: progress, [chunked.id]: chunkedProgress, [second.id]: completedProgress(second) },
+    }
+    localStorage.setItem(v1Key, JSON.stringify(legacy))
+
+    const snapshot = service.loadProgressSnapshot()
+    expect(snapshot.currentId).toBe(first.id)
+    expect(snapshot.records[first.id]).toEqual({ ...progress, source: 'level' })
+    expect(snapshot.records[chunked.id]).toEqual({ ...chunkedProgress, source: 'level' })
+    expect(snapshot.records[second.id]).toEqual({ ...completedProgress(second), source: 'level' })
+    expect(JSON.parse(localStorage.getItem(v2Key)!)).toEqual(snapshot)
+    expect(JSON.parse(localStorage.getItem(v1Key)!)).toEqual(legacy)
+  })
+
+  it('drops the star rating left over in a v1 save', async () => {
+    const service = await import('./progressService')
+    const expected: LevelProgress = {
+      ...completedProgress(first),
+      hintsUsed: 2,
+      bestResult: { completedAt, elapsedSeconds: 20, hintsUsed: 2 },
+    }
+    localStorage.setItem(v1Key, JSON.stringify({
+      currentLevelId: null,
+      levels: { [first.id]: { ...expected, stars: 3 } },
+    }))
+    const loaded = service.loadProgress()[first.id]
+    expect(loaded).toEqual({ ...expected, source: 'level' })
+    expect(loaded).not.toHaveProperty('stars')
+  })
+
+  it('never lets a v1 save overwrite existing v2 data', async () => {
+    const service = await import('./progressService')
+    const legacyRecord = { ...createEmptyProgress(first), elapsedSeconds: 5 }
+    const currentRecord = { ...createEmptyProgress(first), elapsedSeconds: 9 }
+    localStorage.setItem(v1Key, JSON.stringify({ currentLevelId: first.id, levels: { [first.id]: legacyRecord } }))
+    localStorage.setItem(v2Key, JSON.stringify({ currentId: first.id, records: { [first.id]: currentRecord } }))
+
+    expect(service.loadProgress()[first.id]).toEqual(currentRecord)
+    expect(JSON.parse(localStorage.getItem(v2Key)!).records[first.id].elapsedSeconds).toBe(9)
+  })
+
+  it('still moves pre-rename level ids while migrating', async () => {
+    const service = await import('./progressService')
+    const donut = getLevelById('level-004')
+    const rocket = getLevelById('level-005')
+    if (!donut || !rocket) throw new Error('fixture levels missing')
+    localStorage.setItem(v1Key, JSON.stringify({
+      currentLevelId: 'level-009',
+      levels: {
+        'level-005': { ...completedProgress(donut), levelId: 'level-005' },
+        'level-009': { ...completedProgress(rocket), levelId: 'level-009' },
+      },
+    }))
+
+    const snapshot = service.loadProgressSnapshot()
+    expect(snapshot.currentId).toBe('level-005')
+    expect(Object.keys(snapshot.records).sort()).toEqual(['level-004', 'level-005'])
+    expect(isLevelComplete(donut, snapshot.records['level-004'])).toBe(true)
+    expect(isLevelComplete(rocket, snapshot.records['level-005'])).toBe(true)
+  })
+
+  it('returns an empty snapshot when neither version exists', async () => {
+    const service = await import('./progressService')
+    expect(service.loadProgressSnapshot()).toEqual({ currentId: null, records: {} })
+    expect(localStorage.getItem(v2Key)).toBeNull()
   })
 })

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Level } from '../models/level'
+import type { PixelArtwork } from '../models/artwork'
 
-const props = defineProps<{ level: Level }>()
+const props = defineProps<{ level: PixelArtwork }>()
 
 const cells = computed(() => {
   const hexes = new Map(props.level.palette.map((color) => [color.id, color.hex]))

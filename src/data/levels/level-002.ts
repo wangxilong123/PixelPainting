@@ -14,6 +14,7 @@ const rows = [
 export const level002: Level = {
   id: 'level-002',
   title: '红苹果',
+  tags: ['食物', '水果', 'apple'],
   category: 'food',
   difficulty: 1,
   width: 8,

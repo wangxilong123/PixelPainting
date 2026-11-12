@@ -1,3 +1,5 @@
+import type { PixelArtwork } from './artwork'
+
 /** Registry ID from src/data/categories.ts. Unknown IDs fall back to 其他. */
 export type LevelCategory = string
 
@@ -12,22 +14,11 @@ export type LevelParts = {
   rows: number
 }
 
-export type Level = {
-  id: string
-  title: string
+export type Level = PixelArtwork & {
   category: LevelCategory
   difficulty: 1 | 2 | 3
-  width: number
-  height: number
-  palette: PaletteColor[]
-  /** Row-major color IDs. Zero marks an empty cell. */
-  cells: number[]
-  /** Chunked painting over the whole grid. Only 2×2 and 3×3 count; anything else is one part. */
-  parts?: LevelParts
-  thumbnail?: string
   /** Unlock position. Levels without one keep registration order at the end. */
   order?: number
-  tags?: string[]
   source?: 'preset' | 'user'
 }
 
@@ -43,8 +34,12 @@ export type LevelResult = {
   hintsUsed: number
 }
 
+export type ProgressSource = 'level' | 'artwork' | 'user'
+
 export type LevelProgress = {
   levelId: string
+  /** Which mode the attempt belongs to. Absent in migrated pre-v2 records means level. */
+  source?: ProgressSource
   /** Color IDs at the same indexes as Level.cells. Zero means unpainted. */
   painted: number[]
   startedAt?: string

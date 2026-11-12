@@ -1,5 +1,6 @@
 import { levelCategories, normalizeCategory, type LevelCategoryEntry } from '../data/categories'
 import { presetLevels } from '../data/levels'
+import type { PixelArtwork } from '../models/artwork'
 import type { Level, LevelParts } from '../models/level'
 
 export type PartRect = {
@@ -48,7 +49,7 @@ export function getCategories(): LevelCategoryEntry[] {
   return levelCategories.filter((entry) => present.has(entry.id))
 }
 
-export function validateLevel(level: Level): void {
+export function validateLevel(level: PixelArtwork): void {
   const { id, width, height, palette, cells } = level
 
   if (!Number.isInteger(width) || width < 1 || !Number.isInteger(height) || height < 1) {
@@ -84,11 +85,11 @@ export function validateLevel(level: Level): void {
   }
 }
 
-export function getInteractiveCellCount(level: Level): number {
+export function getInteractiveCellCount(level: PixelArtwork): number {
   return level.cells.filter((colorId) => colorId !== 0).length
 }
 
-export function normalizeParts(level: Level): LevelParts {
+export function normalizeParts(level: PixelArtwork): LevelParts {
   const { cols, rows } = level.parts ?? { cols: 1, rows: 1 }
   if (cols !== rows || !partCounts.has(cols)) return { cols: 1, rows: 1 }
   return { cols, rows }
@@ -109,7 +110,7 @@ function axisPart(sizes: number[], position: number): number {
   return sizes.length - 1
 }
 
-export function getPartRects(level: Level): PartRect[] {
+export function getPartRects(level: PixelArtwork): PartRect[] {
   const { cols, rows } = normalizeParts(level)
   const widths = splitAxis(level.width, cols)
   const heights = splitAxis(level.height, rows)
@@ -133,7 +134,7 @@ export function getPartRects(level: Level): PartRect[] {
   return rects
 }
 
-export function getPartIndex(level: Level, cellIndex: number): number {
+export function getPartIndex(level: PixelArtwork, cellIndex: number): number {
   if (!Number.isInteger(cellIndex) || cellIndex < 0 || cellIndex >= level.cells.length) return -1
 
   const { cols, rows } = normalizeParts(level)

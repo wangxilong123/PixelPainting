@@ -2,11 +2,12 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createPixelCanvas, type PaintResult, type PaintStatus, type PixelCanvasController } from '../canvas/pixelCanvas'
 import { createDefaultViewport } from '../canvas/viewport'
-import type { Level, LevelViewport } from '../models/level'
+import type { PixelArtwork } from '../models/artwork'
+import type { LevelViewport } from '../models/level'
 import { getInteractiveCellCount, type PartRect } from '../services/levelService'
 
 const props = defineProps<{
-  level: Level
+  level: PixelArtwork
   readPainted: () => readonly number[]
   commitPaint: (index: number, colorId: number) => PaintStatus
   selectedColorId: number | null

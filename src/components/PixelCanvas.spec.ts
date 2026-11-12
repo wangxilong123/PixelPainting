@@ -55,8 +55,8 @@ describe('PixelCanvas', () => {
     const { createEmptyProgress, saveProgressSnapshot } = await import('../services/progressService')
     const { useLevelProgress } = await import('../composables/useLevelProgress')
     saveProgressSnapshot({
-      currentLevelId: first.id,
-      levels: {
+      currentId: first.id,
+      records: {
         [first.id]: {
           ...createEmptyProgress(first),
           painted: first.cells.map((color, index) => remaining.includes(index) ? 0 : color),

@@ -94,7 +94,7 @@ async function seedCompleted(ids: string[]) {
       bestResult: { completedAt, elapsedSeconds: 42, hintsUsed: 0 },
     }
   }
-  saveProgressSnapshot({ currentLevelId: null, levels: records })
+  saveProgressSnapshot({ currentId: null, records })
 }
 
 function button(wrapper: VueWrapper<any>, text: string) {
@@ -151,8 +151,8 @@ describe('GamePage', () => {
     const [index, color] = firstTarget(first)
     painted[index] = color
     saveProgressSnapshot({
-      currentLevelId: first.id,
-      levels: {
+      currentId: first.id,
+      records: {
         [first.id]: {
           ...createEmptyProgress(first),
           painted,

@@ -4,6 +4,7 @@ import type { Level } from '../../models/level'
 export const level007: Level = {
   id: 'level-007',
   title: '企鹅',
+  tags: ['动物', '企鹅', '鸟类', 'penguin'],
   category: 'animal',
   difficulty: 3,
   width: 48,

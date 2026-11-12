@@ -1,5 +1,7 @@
 import { computed, readonly, shallowRef, type ShallowRef } from 'vue'
-import type { Level, LevelProgress, LevelResult, LevelViewport } from '../models/level'
+import type { PixelArtwork } from '../models/artwork'
+import type { LevelProgress, LevelResult, LevelViewport } from '../models/level'
+import { getArtworkById } from '../services/artworkService'
 import { getLevelById, getLevels, getPartRects, type PartRect } from '../services/levelService'
 import {
   createEmptyProgress,
@@ -16,9 +18,10 @@ let sharedState: ShallowRef<ProgressSnapshot> | undefined
 
 function restoreProgress(): ProgressSnapshot {
   const snapshot = loadProgressSnapshot()
-  const id = snapshot.currentLevelId
-  if (id !== null && !isLevelUnlocked(levels, snapshot.levels, id)) {
-    return { ...snapshot, currentLevelId: null }
+  const id = snapshot.currentId
+  // 自由涂色没有解锁；只有当前项是关卡且未解锁时才回退
+  if (id !== null && getLevelById(id) && !isLevelUnlocked(levels, snapshot.records, id)) {
+    return { ...snapshot, currentId: null }
   }
   return snapshot
 }
@@ -31,7 +34,7 @@ function isBetterResult(result: LevelResult, best: LevelResult): boolean {
 }
 
 function findHintCell(
-  level: Level,
+  level: PixelArtwork,
   rect: PartRect,
   colorId: number,
   painted: readonly number[],
@@ -47,19 +50,19 @@ function findHintCell(
 
 export function useLevelProgress() {
   const state = sharedState ??= shallowRef(restoreProgress())
-  const currentLevelId = computed(() => state.value.currentLevelId)
+  const currentLevelId = computed(() => state.value.currentId)
   const currentLevel = computed(() => {
     const id = currentLevelId.value
-    return id === null ? undefined : getLevelById(id)
+    return id === null ? undefined : getLevelById(id) ?? getArtworkById(id)
   })
   const attempt = computed(() => {
     const id = currentLevelId.value
-    return id === null ? undefined : state.value.levels[id]
+    return id === null ? undefined : state.value.records[id]
   })
   const currentProgress = computed(() => attempt.value && readonly(attempt.value))
-  const levelRecords = computed<Record<string, LevelProgress>>(() => ({ ...state.value.levels }))
+  const levelRecords = computed<Record<string, LevelProgress>>(() => ({ ...state.value.records }))
 
-  function settleIfComplete(level: Level, progress: LevelProgress): void {
+  function settleIfComplete(level: PixelArtwork, progress: LevelProgress): void {
     if (!isLevelComplete(level, progress)) return
 
     const result: LevelResult = {
@@ -73,7 +76,7 @@ export function useLevelProgress() {
     }
   }
 
-  function isOpenAttempt(): [Level, LevelProgress] | [] {
+  function isOpenAttempt(): [PixelArtwork, LevelProgress] | [] {
     const level = currentLevel.value
     const progress = attempt.value
     if (!level || !progress || progress.completedAt) return []
@@ -82,8 +85,8 @@ export function useLevelProgress() {
 
   function saveAttempt(progress: LevelProgress): void {
     const snapshot: ProgressSnapshot = {
-      currentLevelId: progress.levelId,
-      levels: { ...state.value.levels, [progress.levelId]: progress },
+      currentId: progress.levelId,
+      records: { ...state.value.records, [progress.levelId]: progress },
     }
     saveProgressSnapshot(snapshot)
     state.value = snapshot
@@ -91,10 +94,20 @@ export function useLevelProgress() {
 
   function openLevel(levelId: string): boolean {
     const level = getLevelById(levelId)
-    const records = state.value.levels
+    const records = state.value.records
     if (!level || !isLevelUnlocked(levels, records, levelId)) return false
 
     const progress = records[levelId] ?? createEmptyProgress(level)
+    const startedAt = progress.startedAt ?? new Date().toISOString()
+    saveAttempt({ ...progress, startedAt })
+    return true
+  }
+
+  function openArtwork(artworkId: string): boolean {
+    const artwork = getArtworkById(artworkId)
+    if (!artwork) return false
+
+    const progress = state.value.records[artworkId] ?? createEmptyProgress(artwork, 'artwork')
     const startedAt = progress.startedAt ?? new Date().toISOString()
     saveAttempt({ ...progress, startedAt })
     return true
@@ -198,7 +211,7 @@ export function useLevelProgress() {
     const progress = attempt.value
     if (!level || !progress) return
 
-    const restarted = createEmptyProgress(level)
+    const restarted = createEmptyProgress(level, progress.source ?? 'level')
     restarted.startedAt = new Date().toISOString()
     if (progress.bestResult) {
       restarted.bestResult = progress.bestResult
@@ -217,7 +230,7 @@ export function useLevelProgress() {
     if (index === -1) return
 
     const next = levels[index + 1]
-    if (next && isLevelUnlocked(levels, state.value.levels, next.id)) return next.id
+    if (next && isLevelUnlocked(levels, state.value.records, next.id)) return next.id
   }
 
   return {
@@ -225,6 +238,7 @@ export function useLevelProgress() {
     currentProgress,
     levelRecords,
     openLevel,
+    openArtwork,
     paintCell,
     revertCell,
     repaintCell,
