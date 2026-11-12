@@ -228,12 +228,40 @@ describe('GamePage chunked painting', () => {
       const progress = await session()
       expect(progress.currentProgress.value?.partIndex).toBe(0)
 
-      // 第 1 块只有 1、2 号色各 8 格；3 号色这块没有，直接禁用
+      // 第 1 块只有 1、2 号色各 8 格；3 号色这块没有，直接不显示
+      expect(wrapper.findAll('.color-swatch')).toHaveLength(2)
       expect(swatch(wrapper, 1).find('.swatch-count').text()).toBe('8')
       expect(swatch(wrapper, 2).find('.swatch-count').text()).toBe('8')
-      expect(swatch(wrapper, 3).find('.swatch-count').text()).toBe('0')
-      expect(swatch(wrapper, 3).attributes('disabled')).toBeDefined()
+      expect(swatch(wrapper, 3).exists()).toBe(false)
       expect(swatch(wrapper, 1).attributes('aria-pressed')).toBe('true')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('removes a swatch as soon as its color is painted out in the current part', async () => {
+    const { wrapper, stub } = await mountGame()
+    try {
+      await button(wrapper, '开始涂色').trigger('click')
+      await flushPromises()
+      const canvas = wrapper.findComponent(stub)
+      const level = canvas.props('level') as Level
+      const commitPaint = canvas.props('commitPaint') as (index: number, colorId: number) => string
+
+      // 把第 1 块的 1 号色 8 格全部涂完：色块实时撤掉，选中色自动切到 2
+      const rect = partRects[0]
+      for (let row = rect.y; row < rect.y + rect.height; row += 1) {
+        for (let column = rect.x; column < rect.x + rect.width; column += 1) {
+          const index = row * level.width + column
+          if (level.cells[index] === 1) commitPaint(index, 1)
+        }
+      }
+      await flushPromises()
+
+      expect(wrapper.findAll('.color-swatch')).toHaveLength(1)
+      expect(swatch(wrapper, 1).exists()).toBe(false)
+      expect(swatch(wrapper, 2).find('.swatch-count').text()).toBe('8')
+      expect(swatch(wrapper, 2).attributes('aria-pressed')).toBe('true')
     } finally {
       wrapper.unmount()
     }
@@ -269,9 +297,10 @@ describe('GamePage chunked painting', () => {
       const progress = await session()
       expect(progress.currentProgress.value?.partIndex).toBe(1)
 
-      // 第 2 块只有 3 号色：1、2 号色禁用，选中色自动切到 3
-      expect(swatch(wrapper, 1).attributes('disabled')).toBeDefined()
-      expect(swatch(wrapper, 2).attributes('disabled')).toBeDefined()
+      // 第 2 块只有 3 号色：1、2 号色不显示，选中色自动切到 3
+      expect(wrapper.findAll('.color-swatch')).toHaveLength(1)
+      expect(swatch(wrapper, 1).exists()).toBe(false)
+      expect(swatch(wrapper, 2).exists()).toBe(false)
       expect(swatch(wrapper, 3).find('.swatch-count').text()).toBe('8')
       expect(swatch(wrapper, 3).attributes('aria-pressed')).toBe('true')
     } finally {

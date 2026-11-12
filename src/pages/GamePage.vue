@@ -158,7 +158,7 @@ const remainingCounts = computed(() => {
 })
 
 // 分块涂色时调色板也只数当前块：块外的目标色掩成 0，
-// 这块没有的颜色直接禁用，玩家不会选到一个涂哪都错的颜色
+// 这块没有的颜色直接不显示，玩家不会选到一个涂哪都错的颜色
 const paletteCells = computed(() => {
   const current = work.value
   if (!current) return []
@@ -171,6 +171,14 @@ const paletteCells = computed(() => {
       && column >= scope.x && column < scope.x + scope.width
     return inside ? target : 0
   })
+})
+
+// 分块时数量为 0 的颜色从调色板里撤掉而不是摆一排禁用格；
+// 颜色编号保持整图原编号，格子上的数字不受影响
+const paletteColors = computed(() => {
+  const palette = work.value?.palette ?? []
+  if (!isChunked.value) return palette
+  return palette.filter((color) => (remainingCounts.value.get(color.id) ?? 0) > 0)
 })
 
 function firstAvailableColor(): number | null {
@@ -507,7 +515,7 @@ function backToList(): void {
 
     <ColorPalette
       v-if="phase === 'painting'"
-      :palette="work.palette"
+      :palette="paletteColors"
       :cells="paletteCells"
       :painted="currentProgress.painted"
       :selected-color-id="selectedColorId"
