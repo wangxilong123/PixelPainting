@@ -31,6 +31,8 @@
   --font-meta: 0.95rem;
   --font-tag: 0.85rem;
   --font-tabbar: 0.8rem;
+  /* 桌面侧边栏宽度旋钮；窄屏折成底部标签栏时不受它影响 */
+  --sidebar-width: 15rem;
   /* 图标语义色旋钮：按图标名上色（global.css），想换色改这里 */
   --icon-hint: var(--color-primary);
   --icon-edit: var(--color-focus);

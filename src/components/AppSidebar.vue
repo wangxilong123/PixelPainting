@@ -49,7 +49,7 @@ function isActive(to: string): boolean {
   flex: none;
   flex-direction: column;
   gap: var(--space-6);
-  width: 13rem;
+  width: var(--sidebar-width);
   height: 100vh;
   padding: var(--space-6) var(--space-4);
   border-right: 1px solid var(--color-border);
