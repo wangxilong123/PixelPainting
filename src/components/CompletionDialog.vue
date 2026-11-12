@@ -11,6 +11,7 @@ const props = defineProps<{
   nextLevelId?: string
   level?: PixelArtwork
   title?: string
+  backLabel?: string
 }>()
 
 const emit = defineEmits<{ next: []; replay: []; back: [] }>()
@@ -54,7 +55,7 @@ const time = computed(() => {
         </button>
         <button type="button" @click="emit('back')">
           <PixelIcon name="arrow-left" />
-          <span>返回列表</span>
+          <span>{{ backLabel ?? '返回列表' }}</span>
         </button>
       </div>
     </div>

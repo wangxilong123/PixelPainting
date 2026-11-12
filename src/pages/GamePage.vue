@@ -11,6 +11,7 @@ import PixelIcon from '../components/PixelIcon.vue'
 import { useGameSettings } from '../composables/useGameSettings'
 import { useLevelProgress } from '../composables/useLevelProgress'
 import { playPaintSound } from '../services/audioService'
+import { getArtworkById } from '../services/artworkService'
 import { getLevelById, getInteractiveCellCount, getPartRects } from '../services/levelService'
 
 const route = useRoute()
@@ -18,6 +19,7 @@ const router = useRouter()
 const {
   currentProgress,
   openLevel,
+  openArtwork,
   paintCell,
   revertCell,
   repaintCell,
@@ -29,10 +31,15 @@ const {
   getNextLevelId,
 } = useLevelProgress()
 
-const levelId = computed(() => String(route.params.levelId ?? ''))
-const level = computed(() => getLevelById(levelId.value))
+// 自由涂色和关卡模式共用这一页：素材没有解锁顺序，计时可以关
+const isPaint = computed(() => route.name === 'paint')
+const workId = computed(() =>
+  String((isPaint.value ? route.params.artworkId : route.params.levelId) ?? ''),
+)
+const work = computed(() => (isPaint.value ? getArtworkById(workId.value) : getLevelById(workId.value)))
 const entered = ref(false)
 const settingsOpen = ref(false)
+const timingEnabled = ref(true)
 
 const { showRemaining, immersive, toggleImmersive } = useGameSettings()
 
@@ -59,8 +66,8 @@ let completedGuard = false
 const isCompleted = computed(() => currentProgress.value?.completedAt !== undefined)
 const canUndo = computed(() => history.value.length > 0 && !isCompleted.value)
 const canRedo = computed(() => redoStack.value.length > 0 && !isCompleted.value)
-const total = computed(() => (level.value ? getInteractiveCellCount(level.value) : 0))
-const partRects = computed(() => (level.value ? getPartRects(level.value) : []))
+const total = computed(() => (work.value ? getInteractiveCellCount(work.value) : 0))
+const partRects = computed(() => (work.value ? getPartRects(work.value) : []))
 const partIndex = computed(() => currentProgress.value?.partIndex ?? 0)
 // 不分块的关卡传 null，画布走整图那条路，行为和分块之前完全一致
 const currentPart = computed(() =>
@@ -72,11 +79,11 @@ const progressPercent = computed(() =>
 const timeDisplay = computed(() => formatTime(elapsed.value))
 const resultElapsed = computed(() => currentProgress.value?.elapsedSeconds ?? 0)
 const resultHints = computed(() => currentProgress.value?.hintsUsed ?? 0)
-const nextLevelId = computed(() => (dialogOpen.value ? getNextLevelId() : undefined))
+const nextLevelId = computed(() => (dialogOpen.value && !isPaint.value ? getNextLevelId() : undefined))
 
 const remainingCounts = computed(() => {
   const counts = new Map<number, number>()
-  const current = level.value
+  const current = work.value
   const progress = currentProgress.value
   if (!current || !progress) return counts
   for (const color of current.palette) counts.set(color.id, 0)
@@ -88,7 +95,7 @@ const remainingCounts = computed(() => {
 })
 
 function firstAvailableColor(): number | null {
-  for (const color of level.value?.palette ?? []) {
+  for (const color of work.value?.palette ?? []) {
     if ((remainingCounts.value.get(color.id) ?? 0) > 0) return color.id
   }
   return null
@@ -121,6 +128,7 @@ function startTimer(): void {
   baseElapsed = currentProgress.value?.elapsedSeconds ?? 0
   elapsed.value = baseElapsed
   if (currentProgress.value?.completedAt) return
+  if (isPaint.value && !timingEnabled.value) return
   sinceTs = Date.now()
   timer = window.setInterval(() => {
     const seconds = baseElapsed + Math.floor((Date.now() - sinceTs) / 1000)
@@ -129,8 +137,14 @@ function startTimer(): void {
   }, 1000)
 }
 
+function toggleTiming(): void {
+  timingEnabled.value = !timingEnabled.value
+  if (timingEnabled.value) startTimer()
+  else stopTimer()
+}
+
 function countPainted(): number {
-  const current = level.value
+  const current = work.value
   const progress = currentProgress.value
   if (!current || !progress) return 0
   let count = 0
@@ -148,9 +162,11 @@ function enter(id: string): void {
   dialogOpen.value = false
   confirmRestart.value = false
   completedGuard = false
-  if (!openLevel(id)) {
+  timingEnabled.value = true
+  const opened = isPaint.value ? openArtwork(id) : openLevel(id)
+  if (!opened) {
     entered.value = false
-    router.replace({ name: 'levels' })
+    router.replace({ name: isPaint.value ? 'materials' : 'levels' })
     return
   }
   entered.value = true
@@ -159,7 +175,10 @@ function enter(id: string): void {
   startTimer()
 }
 
-watch(levelId, (id) => enter(id), { immediate: true })
+// 离开涂色路由时 workId 会清空，不能再触发进入逻辑，否则失败重定向会连环跳
+watch(workId, (id) => {
+  if (route.name === 'game' || route.name === 'paint') enter(id)
+}, { immediate: true })
 onBeforeUnmount(stopTimer)
 
 function readPainted(): readonly number[] {
@@ -249,20 +268,32 @@ function goNext(): void {
 
 function backToList(): void {
   dialogOpen.value = false
-  router.push({ name: 'levels' })
+  router.push({ name: isPaint.value ? 'materials' : 'levels' })
 }
 </script>
 
 <template>
-  <div v-if="entered && level && currentProgress" class="game-page">
+  <div v-if="entered && work && currentProgress" class="game-page">
     <header v-if="!immersive" class="game-bar">
-      <button type="button" @click="router.push({ name: 'levels' })">
+      <button type="button" @click="backToList">
         <PixelIcon name="arrow-left" />
         <span>返回</span>
       </button>
-      <h2 class="game-title">{{ level.title }}</h2>
+      <h2 class="game-title">{{ work.title }}</h2>
       <span class="game-stat">已填 {{ paintedCount }} / {{ total }}</span>
-      <span class="game-stat game-timer" role="timer">{{ timeDisplay }}</span>
+      <span class="game-clock">
+        <span v-if="!isPaint || timingEnabled" class="game-stat game-timer" role="timer">{{ timeDisplay }}</span>
+        <button
+          v-if="isPaint"
+          type="button"
+          class="timer-toggle"
+          :aria-pressed="timingEnabled"
+          @click="toggleTiming"
+        >
+          <PixelIcon :name="timingEnabled ? 'clock' : 'clock-off'" />
+          <span>{{ timingEnabled ? '计时开' : '计时关' }}</span>
+        </button>
+      </span>
       <div class="game-settings">
         <button
           type="button"
@@ -293,7 +324,7 @@ function backToList(): void {
 
     <PixelCanvas
       ref="canvasRef"
-      :level="level"
+      :level="work"
       :read-painted="readPainted"
       :commit-paint="paintCell"
       :selected-color-id="selectedColorId"
@@ -308,7 +339,7 @@ function backToList(): void {
     />
 
     <PartPicker
-      :level="level"
+      :level="work"
       :parts="partRects"
       :painted="currentProgress.painted"
       :part-index="partIndex"
@@ -349,8 +380,8 @@ function backToList(): void {
     </div>
 
     <ColorPalette
-      :palette="level.palette"
-      :cells="level.cells"
+      :palette="work.palette"
+      :cells="work.cells"
       :painted="currentProgress.painted"
       :selected-color-id="selectedColorId"
       :show-remaining="showRemaining"
@@ -362,7 +393,9 @@ function backToList(): void {
       :elapsed-seconds="resultElapsed"
       :hints-used="resultHints"
       :next-level-id="nextLevelId"
-      :level="level"
+      :level="work"
+      :title="isPaint ? '作品完成！' : undefined"
+      :back-label="isPaint ? '返回素材库' : undefined"
       @next="goNext"
       @replay="doRestart"
       @back="backToList"
@@ -432,7 +465,10 @@ function backToList(): void {
   font-variant-numeric: tabular-nums;
 }
 
-.game-timer {
+.game-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
   margin-left: auto;
 }
 

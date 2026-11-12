@@ -29,6 +29,12 @@
   --icon-view: #b8a9f5;
   --icon-toggle: #6fd3c9;
   --icon-danger: var(--color-danger);
+  --icon-materials: var(--color-primary);
+  --icon-collections: #f2a2c0;
+  --icon-studio: var(--icon-fresh);
+  --icon-profile: var(--icon-view);
+  --icon-levels: var(--icon-toggle);
+  --icon-search: var(--color-focus);
   --font-ui: system-ui, "Segoe UI", sans-serif;
   --transition-fast: 120ms ease-out;
 }

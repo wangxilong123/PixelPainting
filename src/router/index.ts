@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory, type RouterHistory } from 'vue-router'
-import HomePage from '../pages/HomePage.vue'
+import MaterialsPage from '../pages/MaterialsPage.vue'
 import LevelSelectPage from '../pages/LevelSelectPage.vue'
 import GamePage from '../pages/GamePage.vue'
+import PlaceholderPage from '../pages/PlaceholderPage.vue'
 
 export function createAppRouter(
   history: RouterHistory = createWebHistory(import.meta.env.BASE_URL),
@@ -9,15 +10,10 @@ export function createAppRouter(
   return createRouter({
     history,
     routes: [
-      // 关卡模式期间根路径直接进选关页，首页素材库落地后再改回素材页
       {
         path: '/',
-        redirect: { name: 'levels' },
-      },
-      {
-        path: '/home',
-        name: 'home',
-        component: HomePage,
+        name: 'materials',
+        component: MaterialsPage,
       },
       {
         path: '/levels',
@@ -28,6 +24,29 @@ export function createAppRouter(
         path: '/game/:levelId',
         name: 'game',
         component: GamePage,
+      },
+      {
+        path: '/paint/:artworkId',
+        name: 'paint',
+        component: GamePage,
+      },
+      {
+        path: '/collections',
+        name: 'collections',
+        component: PlaceholderPage,
+        meta: { title: '合集', icon: 'collections' },
+      },
+      {
+        path: '/studio',
+        name: 'studio',
+        component: PlaceholderPage,
+        meta: { title: '制作像素图', icon: 'studio' },
+      },
+      {
+        path: '/profile',
+        name: 'profile',
+        component: PlaceholderPage,
+        meta: { title: '个人中心', icon: 'profile' },
       },
     ],
   })
