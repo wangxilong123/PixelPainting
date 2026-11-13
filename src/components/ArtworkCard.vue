@@ -1,19 +1,36 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
 import type { PixelArtwork } from '../models/artwork'
 import { getInteractiveCellCount } from '../services/levelService'
+import PixelIcon from './PixelIcon.vue'
 import PixelPreview from './PixelPreview.vue'
 
-const props = defineProps<{ artwork: PixelArtwork }>()
+const props = withDefaults(defineProps<{
+  artwork: PixelArtwork
+  /** 作品集里关卡作品要回关卡页，默认走自由涂色。 */
+  to?: RouteLocationRaw
+  badge?: string
+  note?: string
+  actionLabel?: string
+}>(), {
+  to: undefined,
+  badge: '',
+  note: '',
+  actionLabel: '自由涂色',
+})
 
 const cellCount = computed(() => getInteractiveCellCount(props.artwork))
+const target = computed<RouteLocationRaw>(
+  () => props.to ?? { name: 'paint', params: { artworkId: props.artwork.id } },
+)
 </script>
 
 <template>
   <RouterLink
-    :to="{ name: 'paint', params: { artworkId: artwork.id } }"
+    :to="target"
     class="artwork-card"
-    :aria-label="`${artwork.title}，自由涂色`"
+    :aria-label="`${artwork.title}，${actionLabel}`"
   >
     <span class="card-preview">
       <img
@@ -23,10 +40,15 @@ const cellCount = computed(() => getInteractiveCellCount(props.artwork))
         :alt="`${artwork.title} 预览`"
       >
       <PixelPreview v-else :level="artwork" />
+      <span v-if="badge" class="card-badge">{{ badge }}</span>
     </span>
     <span class="card-body">
       <span class="card-title">{{ artwork.title }}</span>
       <span class="card-meta">{{ artwork.width }}×{{ artwork.height }} · {{ cellCount }} 格</span>
+      <span v-if="note" class="card-note">
+        <PixelIcon name="check" />
+        <span>{{ note }}</span>
+      </span>
       <span v-if="artwork.tags.length > 0" class="card-tags">
         <span v-for="tag in artwork.tags" :key="tag" class="card-tag">{{ tag }}</span>
       </span>
@@ -55,11 +77,24 @@ const cellCount = computed(() => getInteractiveCellCount(props.artwork))
 }
 
 .card-preview {
+  position: relative;
   display: grid;
   place-items: center;
   aspect-ratio: 1;
   padding: var(--space-2);
   background: var(--color-background);
+}
+
+.card-badge {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: rgb(17 17 27 / 80%);
+  color: var(--color-text-muted);
+  font-size: var(--font-tag);
 }
 
 .card-preview .pixel-preview {
@@ -90,6 +125,21 @@ const cellCount = computed(() => getInteractiveCellCount(props.artwork))
   color: var(--color-text-muted);
   font-size: var(--font-meta);
   font-variant-numeric: tabular-nums;
+}
+
+.card-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--color-text-muted);
+  font-size: var(--font-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+.card-note .pixel-icon {
+  width: var(--icon-badge-size);
+  height: var(--icon-badge-size);
+  color: var(--icon-fresh);
 }
 
 .card-tags {

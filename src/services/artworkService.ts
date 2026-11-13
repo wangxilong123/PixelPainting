@@ -54,6 +54,11 @@ export function isUserArtwork(id: string): boolean {
   return userArtworks.has(id)
 }
 
+/** 预设素材加用户作品的完整清单，供个人中心统计与作品集遍历。 */
+export function getAllArtworks(): PixelArtwork[] {
+  return [...presetArtworks, ...userArtworks.values()]
+}
+
 // 标题与标签的大小写不敏感命中；素材库搜索与合集详情内搜索共用这一条判定
 export function artworkMatchesQuery(artwork: PixelArtwork, query: string): boolean {
   const keyword = query.trim().toLowerCase()

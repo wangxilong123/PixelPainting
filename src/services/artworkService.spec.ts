@@ -1,14 +1,18 @@
 import { describe, expect, it, vi } from 'vitest'
 import { presetArtworks } from '../data/artworks'
 import { presetCollections } from '../data/collections'
+import type { PixelArtwork } from '../models/artwork'
 import type { Collection } from '../models/collection'
 import { getLevels } from './levelService'
 import {
   artworkMatchesQuery,
+  getAllArtworks,
   getArtworkById,
   getCollectionById,
+  registerUserArtwork,
   searchArtworks,
   searchCollections,
+  unregisterUserArtwork,
 } from './artworkService'
 
 describe('artwork registry', () => {
@@ -27,6 +31,27 @@ describe('artwork registry', () => {
     expect(getArtworkById(first.id)).toBe(first)
     expect(getArtworkById('art-999')).toBeUndefined()
     expect(getArtworkById('level-001')).toBeUndefined()
+  })
+
+  it('lists preset and user artworks together for the profile stats', () => {
+    const user: PixelArtwork = {
+      id: 'user-registry-test',
+      title: '我的作品',
+      tags: ['原创'],
+      width: 1,
+      height: 1,
+      palette: [{ id: 1, hex: '#FFCC66', name: '琥珀' }],
+      cells: [1],
+    }
+    expect(getAllArtworks()).toEqual([...presetArtworks])
+    registerUserArtwork(user)
+    try {
+      expect(getAllArtworks()).toEqual([...presetArtworks, user])
+      expect(getArtworkById(user.id)).toBe(user)
+    } finally {
+      unregisterUserArtwork(user.id)
+    }
+    expect(getAllArtworks()).toEqual([...presetArtworks])
   })
 })
 

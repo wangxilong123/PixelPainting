@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory } from 'vue-router'
 import { describe, expect, it } from 'vitest'
 import App from './App.vue'
@@ -56,17 +56,18 @@ describe('App', () => {
     expect(paint.params.artworkId).toBe('art-001')
   })
 
-  it('serves the upcoming sections from placeholder pages', async () => {
-    for (const [path, title] of [['/profile', '个人中心']]) {
-      const { wrapper, router } = await mountApp(path)
-      try {
-        expect(router.currentRoute.value.meta.title).toBe(title)
-        expect(wrapper.get('main').text()).toContain(title)
-        expect(wrapper.get('main').text()).toContain('建设中')
-        expect(wrapper.get('main a[href="/"]').text()).toBe('返回素材库')
-      } finally {
-        wrapper.unmount()
-      }
+  it('serves the profile section with stats and a portfolio', async () => {
+    const { wrapper, router } = await mountApp('/profile')
+    try {
+      expect(router.currentRoute.value.name).toBe('profile')
+      expect(router.currentRoute.value.meta.title).toBe('个人中心')
+      expect(wrapper.get('main').text()).toContain('个人中心')
+      await flushPromises()
+      expect(wrapper.findAll('.stat-card')).toHaveLength(3)
+      expect(wrapper.find('.profile-portfolio').exists()).toBe(true)
+      expect(wrapper.find('.placeholder-page').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
     }
   })
 

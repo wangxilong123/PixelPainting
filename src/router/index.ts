@@ -5,7 +5,7 @@ import GamePage from '../pages/GamePage.vue'
 import CollectionsPage from '../pages/CollectionsPage.vue'
 import CollectionDetailPage from '../pages/CollectionDetailPage.vue'
 import StudioPage from '../pages/StudioPage.vue'
-import PlaceholderPage from '../pages/PlaceholderPage.vue'
+import ProfilePage from '../pages/ProfilePage.vue'
 
 export function createAppRouter(
   history: RouterHistory = createWebHistory(import.meta.env.BASE_URL),
@@ -53,7 +53,7 @@ export function createAppRouter(
       {
         path: '/profile',
         name: 'profile',
-        component: PlaceholderPage,
+        component: ProfilePage,
         meta: { title: '个人中心', icon: 'profile' },
       },
     ],

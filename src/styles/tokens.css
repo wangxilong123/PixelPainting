@@ -22,8 +22,9 @@
   --icon-size-sm: 1.25rem;
   --icon-badge-size: 0.875rem;
   --action-font: 1.1rem;
-  /* 文字字号旋钮：页面标题、品牌、侧栏导航、分类筛选、卡片标题、辅助说明、标签、窄屏标签栏 */
+  /* 文字字号旋钮：页面标题、板块标题、品牌、侧栏导航、分类筛选、卡片标题、辅助说明、标签、窄屏标签栏、成绩数值 */
   --font-page-title: 1.75rem;
+  --font-section-title: 1.3rem;
   --font-brand: 1.5rem;
   --font-nav: 1.05rem;
   --font-chip: 1rem;
@@ -31,6 +32,9 @@
   --font-meta: 0.95rem;
   --font-tag: 0.85rem;
   --font-tabbar: 0.8rem;
+  --font-stat-value: 1.9rem;
+  /* 个人中心成绩卡片的图标盒尺寸旋钮 */
+  --stat-icon-box: 2.75rem;
   /* 桌面侧边栏宽度旋钮；窄屏折成底部标签栏时不受它影响 */
   --sidebar-width: 15rem;
   /* 图标语义色旋钮：按图标名上色（global.css），想换色改这里 */

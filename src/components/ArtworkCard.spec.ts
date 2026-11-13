@@ -53,4 +53,40 @@ describe('ArtworkCard', () => {
       large.wrapper.unmount()
     }
   })
+
+  it('carries a portfolio badge, completion note and custom target', async () => {
+    const router = createAppRouter(createMemoryHistory())
+    await router.push('/')
+    await router.isReady()
+    const artwork = presetArtworks[0]
+    const wrapper = mount(ArtworkCard, {
+      props: {
+        artwork,
+        to: { name: 'game', params: { levelId: 'level-001' } },
+        badge: '关卡',
+        note: '完成于 2026-11-12 18:30',
+        actionLabel: '重玩关卡',
+      },
+      global: { plugins: [router] },
+    })
+    try {
+      const link = wrapper.get('a.artwork-card')
+      expect(link.attributes('href')).toBe('/game/level-001')
+      expect(link.attributes('aria-label')).toBe(`${artwork.title}，重玩关卡`)
+      expect(wrapper.get('.card-badge').text()).toBe('关卡')
+      expect(wrapper.get('.card-note').text()).toBe('完成于 2026-11-12 18:30')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('omits the badge and note when they are not given', async () => {
+    const { wrapper } = await mountCard(0)
+    try {
+      expect(wrapper.find('.card-badge').exists()).toBe(false)
+      expect(wrapper.find('.card-note').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
+    }
+  })
 })
