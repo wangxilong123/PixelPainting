@@ -15,7 +15,7 @@ for (const [path, raw] of Object.entries(rawFiles)) {
   if (name && name in iconPaths) iconFiles[name] = raw
 }
 
-export type IconSource = { viewBox: string; body: string; crisp: boolean }
+export type IconSource = { viewBox: string; body: string; crisp: boolean; optical?: boolean }
 
 const FORBIDDEN = 'script,style,foreignObject,iframe,animate,animateTransform,animateMotion,set'
 const cache = new Map<string, IconSource>()
@@ -49,9 +49,28 @@ export function normalizeIconSvg(raw: string): IconSource {
   return source
 }
 
+// 六个板块图标上传件的着墨 bbox（1024 viewBox 坐标系，getBBox 实测），
+// 用于把 viewBox 裁到图案边缘，消除文件自带留白不均；换文件需重测，
+// viewBox 不再是 0 0 1024 1024 时自动退回原图。
+const opticalBBoxes: Partial<Record<IconName, readonly [number, number, number, number]>> = {
+  materials: [0, 0, 1023.86, 1023.86],
+  collections: [28.34, 20.78, 967.32, 967.32],
+  search: [30.86, 30.42, 962.49, 963.5],
+  studio: [125.4, 130.46, 773.2, 772.19],
+  levels: [138.62, 95.99, 746.77, 832.08],
+  profile: [168.47, 81.61, 686.83, 814.86],
+}
+
 export function resolveIcon(name: IconName): IconSource {
   const raw = iconFiles[name]
-  if (raw) return normalizeIconSvg(raw)
+  if (raw) {
+    const source = normalizeIconSvg(raw)
+    const bbox = opticalBBoxes[name]
+    if (bbox && source.viewBox === '0 0 1024 1024') {
+      return { ...source, viewBox: bbox.join(' '), optical: true }
+    }
+    return source
+  }
   return {
     viewBox: '0 0 16 16',
     body: iconPaths[name].map((d) => `<path d="${d}"></path>`).join(''),

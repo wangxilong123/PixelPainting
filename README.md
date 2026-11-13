@@ -109,6 +109,8 @@ node scripts/convert-level.mjs 橘猫.png --title 橘猫 --category animal --dif
 
 `src/components/iconSvg.ts` 运行时归一化：取文件自己的 `viewBox`（上传件是 `0 0 1024 1024`），把所有 `fill`/`stroke` 压成 `currentColor`（`none` 保留），剥掉 `script`、`style`、`foreignObject`、动画节点和 `on*` 事件属性，然后内联进 `PixelIcon`。没有对应文件的键回退到 `icons.ts` 的 16×16 像素路径并带 `crispEdges`；有文件的走平滑矢量、不加 `crispEdges`。组件和调用点只认键名，换图不用改代码。
 
+六个板块图标（`materials`/`collections`/`studio`/`profile`/`levels`/`search`）另做光学尺寸归一化：上传件自带留白不均（着墨占画布 67%–100%），同样 20px 并排看会大小不齐。`iconSvg.ts` 里有一张实测着墨 bbox 表，把这六个键的 `viewBox` 裁到图案边缘，`PixelIcon` 再按 `tokens.css` 的 `--icon-ink-ratio`（默认 0.85，即着墨占图标盒 85%、长边对齐）统一缩放；布局盒仍是调用点给的尺寸，其余图标与占位路径不受影响。换这六个文件要重测 bbox；新文件 `viewBox` 不再是 `0 0 1024 1024` 时自动退回原图。
+
 ## 目录
 
 ```

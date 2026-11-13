@@ -90,6 +90,7 @@ describe('dropped-in icon files', () => {
     'sound-off', 'sound-on', 'undo', 'warn',
     'materials', 'collections', 'studio', 'profile', 'levels', 'search',
   ]
+  const boardIcons: IconName[] = ['materials', 'collections', 'studio', 'profile', 'levels', 'search']
 
   it('wires every uploaded file to its icon name', () => {
     for (const name of uploaded) expect(iconFiles[name], name).toBeDefined()
@@ -99,10 +100,10 @@ describe('dropped-in icon files', () => {
     for (const name of uploaded) {
       const source = resolveIcon(name)
       expect(source.crisp, name).toBe(false)
-      expect(source.viewBox, name).toBe('0 0 1024 1024')
       expect(source.body, name).toContain('<path')
       expect(source.body, name).not.toMatch(/#[0-9a-fA-F]{3,8}/)
       expect(source.body, name).not.toContain('<script')
+      if (!boardIcons.includes(name)) expect(source.viewBox, name).toBe('0 0 1024 1024')
     }
   })
 
@@ -113,5 +114,59 @@ describe('dropped-in icon files', () => {
     expect(svg.attributes('width')).toBe('20')
     expect(svg.attributes('shape-rendering')).toBeUndefined()
     expect(wrapper.get('path').attributes('fill')).toBe('currentColor')
+  })
+})
+
+describe('optical size normalization', () => {
+  // 着墨 bbox 实测值（1024 viewBox 坐标系），与 iconSvg.ts 的表互为镜像
+  const croppedViewBoxes: Partial<Record<IconName, string>> = {
+    materials: '0 0 1023.86 1023.86',
+    collections: '28.34 20.78 967.32 967.32',
+    search: '30.86 30.42 962.49 963.5',
+    studio: '125.4 130.46 773.2 772.19',
+    levels: '138.62 95.99 746.77 832.08',
+    profile: '168.47 81.61 686.83 814.86',
+  }
+  const boardIcons = Object.keys(croppedViewBoxes) as IconName[]
+
+  it('crops the six board icons to their measured ink bbox', () => {
+    for (const name of boardIcons) {
+      const source = resolveIcon(name)
+      expect(source.optical, name).toBe(true)
+      expect(source.viewBox, name).toBe(croppedViewBoxes[name])
+    }
+  })
+
+  it('leaves other uploaded icons and placeholders unnormalized', () => {
+    for (const name of ['hint', 'check', 'undo'] as IconName[]) {
+      const source = resolveIcon(name)
+      expect(source.optical, name).toBeFalsy()
+      expect(source.viewBox, name).toBe('0 0 1024 1024')
+    }
+    expect(resolveIcon('reset-view').optical).toBeFalsy()
+  })
+
+  it('marks board icons with data-optical so the CSS ratio knob applies', () => {
+    const board = mount(PixelIcon, { props: { name: 'profile', size: 20 } })
+    const svg = board.get('svg')
+    expect(svg.attributes('data-optical')).toBe('')
+    expect(svg.attributes('viewBox')).toBe('168.47 81.61 686.83 814.86')
+    expect(svg.attributes('width')).toBe('20')
+    expect(svg.attributes('height')).toBe('20')
+
+    const plain = mount(PixelIcon, { props: { name: 'hint', size: 20 } })
+    expect(plain.get('svg').attributes('data-optical')).toBeUndefined()
+  })
+
+  it('falls back to the file viewBox when a replaced file no longer uses the 1024 grid', () => {
+    const original = iconFiles.materials
+    iconFiles.materials = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2 2h20v20H2z"></path></svg>'
+    try {
+      const source = resolveIcon('materials')
+      expect(source.optical).toBeFalsy()
+      expect(source.viewBox).toBe('0 0 24 24')
+    } finally {
+      iconFiles.materials = original
+    }
   })
 })

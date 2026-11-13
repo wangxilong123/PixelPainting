@@ -21,6 +21,9 @@
   --icon-size: 1.375rem;
   --icon-size-sm: 1.25rem;
   --icon-badge-size: 0.875rem;
+  /* 板块图标光学尺寸旋钮：着墨占图标盒的比例（1=顶满，越小留白越多）。
+     六个板块图标先按 iconSvg.ts 的着墨 bbox 表裁到图案边缘，再统一按它缩放 */
+  --icon-ink-ratio: 0.85;
   --action-font: 1.1rem;
   /* 文字字号旋钮：页面标题、板块标题、品牌、侧栏导航、分类筛选、卡片标题、辅助说明、标签、窄屏标签栏、成绩数值 */
   --font-page-title: 1.75rem;
