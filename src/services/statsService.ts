@@ -45,6 +45,12 @@ function byNewestCompletion(a: PortfolioEntry, b: PortfolioEntry): number {
   return a.artwork.id < b.artwork.id ? -1 : a.artwork.id > b.artwork.id ? 1 : 0
 }
 
+// 素材复用关卡的像素数据但 ID 不同，判断「同一幅图」只能看内容本身
+function imageKey(artwork: PixelArtwork): string {
+  const palette = artwork.palette.map((color) => `${color.id}:${color.hex}`).join('|')
+  return `${artwork.width}x${artwork.height}|${palette}|${artwork.cells.join(',')}`
+}
+
 /** 成绩全部从存档派生。重玩后 painted 归零但 bestResult 仍在，作品照样算完成过。 */
 export function getPlayerStats(
   records: Record<string, LevelProgress>,
@@ -61,19 +67,22 @@ export function getPlayerStats(
   return { completedWorks, paintedPixels, totalLevels: getLevels().length }
 }
 
-/** 作品集只收已完成的作品，最近完成的排在前面。 */
+/** 作品集只收已完成的作品，最近完成的排在前面；同一幅图只留最近完成的一条。 */
 export function getPortfolio(
   records: Record<string, LevelProgress>,
   artworks: readonly PixelArtwork[],
 ): PortfolioEntry[] {
-  const entries: PortfolioEntry[] = []
+  const entries = new Map<string, PortfolioEntry>()
   for (const artwork of artworks) {
     const attempt = attemptOf(records, artwork)
     if (!attempt || !isLevelCleared(artwork, attempt)) continue
     const entry: PortfolioEntry = { artwork, source: attempt.source ?? 'level' }
-    const completedAt = attempt.bestResult?.completedAt ?? attempt.completedAt
+    // completedAt 每次完成都刷新，bestResult 只留最佳，重玩后前者缺席才用后者兜底
+    const completedAt = attempt.completedAt ?? attempt.bestResult?.completedAt
     if (completedAt !== undefined) entry.completedAt = completedAt
-    entries.push(entry)
+    const key = imageKey(artwork)
+    const kept = entries.get(key)
+    if (!kept || byNewestCompletion(entry, kept) < 0) entries.set(key, entry)
   }
-  return entries.sort(byNewestCompletion)
+  return [...entries.values()].sort(byNewestCompletion)
 }

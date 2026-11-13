@@ -160,11 +160,25 @@ describe('ProfilePage', () => {
   })
 
   it('pages the portfolio at twelve cards per page', async () => {
-    const { presetArtworks, getLevels, createAppRouter, ProfilePage } = await loadProfile()
-    const works = [...getLevels(), ...presetArtworks]
+    const { storage, getLevels, createAppRouter, ProfilePage } = await loadProfile()
+    const levels = getLevels()
+    // 素材与关卡同图会被去重，分页要用内容互不相同的用户作品凑数
+    const extras: PixelArtwork[] = Array.from({ length: 6 }, (_, index) => ({
+      id: `user-page-${index}`,
+      title: `原创 ${index + 1}`,
+      tags: [],
+      width: 2,
+      height: index + 2,
+      palette: [{ id: 1, hex: '#F4A261', name: '橘' }],
+      cells: Array<number>(2 * (index + 2)).fill(1),
+    }))
+    for (const extra of extras) {
+      await storage.saveUserArtwork(extra, new Blob(['png'], { type: 'image/png' }))
+    }
+    const works = [...levels, ...extras]
     const records: Record<string, LevelProgress> = {}
     for (const [index, work] of works.entries()) {
-      const source: ProgressSource = index < getLevels().length ? 'level' : 'artwork'
+      const source: ProgressSource = index < levels.length ? 'level' : 'user'
       records[work.id] = completed(work, source, new Date(Date.UTC(2026, 10, 1, index)).toISOString())
     }
     seed(records)
@@ -179,6 +193,31 @@ describe('ProfilePage', () => {
       await flushPromises()
       expect(wrapper.findAll('.artwork-card')).toHaveLength(works.length - 12)
       expect(wrapper.get('.pager-status').text()).toBe('第 2 / 2 页')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('shows one card for a picture completed both as a level and as a material', async () => {
+    const { presetArtworks, getLevels, createAppRouter, ProfilePage } = await loadProfile()
+    const [firstLevel] = getLevels()
+    const twin = presetArtworks.find((artwork) => artwork.title === firstLevel.title)
+    if (!twin) throw new Error('preset twin of the first level is missing')
+    seed({
+      [firstLevel.id]: completed(firstLevel, 'level', older),
+      [twin.id]: completed(twin, 'artwork', newer),
+    })
+
+    const { wrapper } = await mountProfile(ProfilePage, createAppRouter)
+    try {
+      const cards = wrapper.findAll('.artwork-card')
+      expect(cards).toHaveLength(1)
+      expect(cards[0].attributes('href')).toBe(`/paint/${twin.id}`)
+      expect(wrapper.get('.card-badge').text()).toBe('素材')
+      expect(wrapper.get('.card-note').text()).toBe('完成于 2026-11-12 18:30')
+      expect(wrapper.get('.portfolio-count').text()).toBe('共 1 幅已完成')
+      // 成绩卡仍按两条完成记录计数，去重只影响作品集展示
+      expect(wrapper.findAll('.stat-value')[0].text()).toBe('2幅')
     } finally {
       wrapper.unmount()
     }

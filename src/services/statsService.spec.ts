@@ -129,13 +129,68 @@ describe('getPortfolio', () => {
     expect(getPortfolio(records, [fox])).toEqual([])
   })
 
-  it('keeps replayed works and prefers the best result timestamp', () => {
+  it('keeps replayed works and falls back to the best result timestamp', () => {
     const records = {
       [cat.id]: attempt(cat, [0, 0, 0, 0], { source: 'level', bestAt: newer }),
     }
     expect(getPortfolio(records, [cat])).toEqual([
       { artwork: cat, source: 'level', completedAt: newer },
     ])
+  })
+
+  it('shows the latest completion time even when an older best result exists', () => {
+    const records = {
+      [cat.id]: attempt(cat, [1, 1, 0, 2], { source: 'level', completedAt: newer, bestAt: older }),
+    }
+    expect(getPortfolio(records, [cat])).toEqual([
+      { artwork: cat, source: 'level', completedAt: newer },
+    ])
+  })
+
+  it('collapses level and free-paint entries of the same picture to the newest one', () => {
+    const level = { ...cat, id: 'level-a' }
+    const records = {
+      [level.id]: attempt(level, [1, 1, 0, 2], { source: 'level', completedAt: older }),
+      [cat.id]: attempt(cat, [1, 1, 0, 2], { source: 'artwork', completedAt: newer }),
+    }
+    expect(getPortfolio(records, [level, cat])).toEqual([
+      { artwork: cat, source: 'artwork', completedAt: newer },
+    ])
+    expect(getPortfolio(records, [cat, level])).toEqual([
+      { artwork: cat, source: 'artwork', completedAt: newer },
+    ])
+  })
+
+  it('keeps the level entry when the level replay is the newest completion', () => {
+    const level = { ...cat, id: 'level-a' }
+    const records = {
+      [level.id]: attempt(level, [1, 1, 0, 2], { source: 'level', completedAt: newer }),
+      [cat.id]: attempt(cat, [1, 1, 0, 2], { source: 'artwork', completedAt: older }),
+    }
+    expect(getPortfolio(records, [level, cat])).toEqual([
+      { artwork: level, source: 'level', completedAt: newer },
+    ])
+  })
+
+  it('dedups a replayed record against its twin by the best result time', () => {
+    const level = { ...cat, id: 'level-a' }
+    const records = {
+      [level.id]: attempt(level, [0, 0, 0, 0], { source: 'level', bestAt: newer }),
+      [cat.id]: attempt(cat, [1, 1, 0, 2], { source: 'artwork', completedAt: older }),
+    }
+    expect(getPortfolio(records, [level, cat])).toEqual([
+      { artwork: level, source: 'level', completedAt: newer },
+    ])
+  })
+
+  it('dedups by picture content, not by title', () => {
+    const sameTitle = makeArtwork('art-c', '橘猫', [2, 2, 0, 1])
+    const records = {
+      [cat.id]: attempt(cat, [1, 1, 0, 2], { source: 'artwork', completedAt: older }),
+      [sameTitle.id]: attempt(sameTitle, [2, 2, 0, 1], { source: 'artwork', completedAt: newer }),
+    }
+    expect(getPortfolio(records, [cat, sameTitle]).map((entry) => entry.artwork.id))
+      .toEqual([sameTitle.id, cat.id])
   })
 
   it('falls back to level source for migrated records and breaks time ties by id', () => {
