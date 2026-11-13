@@ -167,4 +167,56 @@ describe('UploadDialog', () => {
       wrapper.unmount()
     }
   })
+
+  it('raises the grid cap to 256 and splits a 256-wide image into 3×3', async () => {
+    const wide = pixelSource(300, 12, Array.from({ length: 3600 }, (_, i) => (i % 11 === 0 ? green : red)))
+    decode.mockResolvedValue(wide)
+    const wrapper = mountDialog()
+    try {
+      await selectFile(wrapper)
+      const gridSlider = wrapper.findAll('input[type="range"]')[0]
+      expect(gridSlider.attributes('max')).toBe('256')
+      await gridSlider.setValue(256)
+      vi.advanceTimersByTime(120)
+      await flushPromises()
+
+      expect(wrapper.get('.preview-stats').text()).toContain('256×')
+      expect(wrapper.get('select option[value="none"]').attributes('disabled')).toBeDefined()
+      await saveButton(wrapper).trigger('click')
+      await flushPromises()
+      const artwork = wrapper.emitted('saved')?.[0]?.[0] as PixelArtwork
+      expect(artwork.width).toBe(256)
+      expect(artwork.parts).toEqual({ cols: 3, rows: 3 })
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('opens a large pixel-image lightbox from the preview corner and closes it without closing the dialog', async () => {
+    const wrapper = mountDialog()
+    try {
+      await selectFile(wrapper)
+      expect(wrapper.find('.lightbox-backdrop').exists()).toBe(false)
+      const expand = wrapper.get('.preview-expand')
+      expect(expand.attributes('aria-label')).toBe('查看像素图大图')
+
+      await expand.trigger('click')
+      expect(wrapper.get('.lightbox-img').attributes('src')).toBe('data:image/png;base64,TEST')
+      expect(wrapper.get('.lightbox-title').text()).toBe('小橘猫')
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+      await flushPromises()
+      expect(wrapper.find('.lightbox-backdrop').exists()).toBe(false)
+      expect(wrapper.find('.upload-backdrop').exists()).toBe(true)
+      expect(wrapper.emitted('close')).toBeUndefined()
+
+      await wrapper.get('.preview-expand').trigger('click')
+      expect(wrapper.find('.lightbox-backdrop').exists()).toBe(true)
+      await wrapper.get('.lightbox-close').trigger('click')
+      expect(wrapper.find('.lightbox-backdrop').exists()).toBe(false)
+      expect(wrapper.emitted('close')).toBeUndefined()
+    } finally {
+      wrapper.unmount()
+    }
+  })
 })

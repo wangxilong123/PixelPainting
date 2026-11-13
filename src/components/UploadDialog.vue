@@ -26,6 +26,11 @@ const busy = ref(false)
 const saving = ref(false)
 const dragOver = ref(false)
 const error = ref<string | null>(null)
+const lightboxOpen = ref(false)
+
+// 预览画布的内禀渲染基准：按最长边缩到这个像素量级，再交给 CSS 填满预览框，
+// 配合 image-rendering: pixelated 放大也不糊；想更精细调大这个数即可
+const PREVIEW_RENDER_SIZE = 640
 
 const actualWidth = computed(() => (source.value ? Math.min(gridWidth.value, source.value.width) : 0))
 const effectiveParts = computed<LevelParts | undefined>(() => {
@@ -100,7 +105,7 @@ function drawPreview(level: Level): void {
   const canvas = previewCanvas.value
   const ctx = canvas?.getContext('2d')
   if (!canvas || !ctx) return
-  const cell = Math.max(1, Math.floor(320 / Math.max(level.width, level.height)))
+  const cell = Math.max(1, Math.round(PREVIEW_RENDER_SIZE / Math.max(level.width, level.height)))
   canvas.width = level.width * cell
   canvas.height = level.height * cell
   ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -214,10 +219,16 @@ function reset(): void {
   busy.value = false
   saving.value = false
   dragOver.value = false
+  lightboxOpen.value = false
 }
 
 function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') emit('close')
+  if (event.key !== 'Escape') return
+  if (lightboxOpen.value) {
+    lightboxOpen.value = false
+    return
+  }
+  emit('close')
 }
 
 watch(() => props.open, (open) => {
@@ -266,6 +277,16 @@ onBeforeUnmount(() => {
         <div class="upload-preview">
           <div class="preview-frame">
             <canvas ref="previewCanvas" class="preview-canvas" aria-label="像素图预览" />
+            <button
+              v-if="preview && thumbnail"
+              type="button"
+              class="preview-expand"
+              aria-label="查看像素图大图"
+              title="查看像素图大图"
+              @click="lightboxOpen = true"
+            >
+              <PixelIcon name="expand" />
+            </button>
           </div>
           <p class="preview-stats" aria-live="polite">{{ stats }}</p>
           <p v-if="source && actualWidth < source.width" class="preview-note">
@@ -288,7 +309,7 @@ onBeforeUnmount(() => {
           </label>
           <label class="field">
             <span class="field-label">目标格数上限 <b>{{ gridWidth }}</b></span>
-            <input v-model.number="gridWidth" type="range" min="16" max="128" step="1">
+            <input v-model.number="gridWidth" type="range" min="16" max="256" step="1">
           </label>
           <label class="field">
             <span class="field-label">颜色数上限 <b>{{ colorCap }}</b></span>
@@ -330,6 +351,21 @@ onBeforeUnmount(() => {
       >
     </div>
   </div>
+
+  <div v-if="open && lightboxOpen" class="lightbox-backdrop" @click.self="lightboxOpen = false">
+    <figure class="lightbox" role="dialog" aria-modal="true" aria-label="像素图大图">
+      <button type="button" class="lightbox-close" aria-label="关闭大图" @click="lightboxOpen = false">
+        <PixelIcon name="compress" />
+      </button>
+      <div class="lightbox-frame">
+        <img class="lightbox-img" :src="thumbnail" :alt="`${title.trim() || '未命名作品'} 像素图大图`">
+      </div>
+      <figcaption class="lightbox-caption">
+        <span class="lightbox-title">{{ title.trim() || '未命名作品' }}</span>
+        <span class="lightbox-stats">{{ stats }}</span>
+      </figcaption>
+    </figure>
+  </div>
 </template>
 
 <style scoped>
@@ -346,10 +382,13 @@ onBeforeUnmount(() => {
 }
 
 .upload-dialog {
+  /* 尺寸旋钮：对话框最大宽度与左侧预览列宽，想调预览大小改这里 */
+  --upload-width: 60rem;
+  --upload-preview-col: 26rem;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  width: min(52rem, 100%);
+  width: min(var(--upload-width), 100%);
   max-height: calc(100vh - 2rem);
   overflow-y: auto;
   padding: var(--space-6);
@@ -439,7 +478,7 @@ onBeforeUnmount(() => {
 
 .upload-body {
   display: grid;
-  grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+  grid-template-columns: minmax(0, var(--upload-preview-col)) minmax(0, 1fr);
   gap: var(--space-6);
   align-items: start;
 }
@@ -451,6 +490,7 @@ onBeforeUnmount(() => {
 }
 
 .preview-frame {
+  position: relative;
   display: grid;
   place-items: center;
   padding: var(--space-2);
@@ -460,7 +500,7 @@ onBeforeUnmount(() => {
 }
 
 .preview-canvas {
-  max-width: 100%;
+  width: 100%;
   height: auto;
   image-rendering: pixelated;
   /* 透明格露出棋盘格，和涂色画布的空格观感一致 */
@@ -472,6 +512,36 @@ onBeforeUnmount(() => {
     linear-gradient(-45deg, transparent 75%, var(--color-surface-raised) 75%);
   background-size: 16px 16px;
   background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+.preview-expand {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: rgb(17 17 27 / 80%);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.preview-expand:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface-raised);
+  color: var(--color-primary);
+}
+
+.preview-expand .pixel-icon {
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
+  color: inherit;
 }
 
 .preview-stats {
@@ -647,6 +717,112 @@ onBeforeUnmount(() => {
   clip: rect(0 0 0 0);
   white-space: nowrap;
   border: 0;
+}
+
+.lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgb(0 0 0 / 82%);
+  overflow-y: auto;
+}
+
+.lightbox {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  margin: 0;
+  max-width: 100%;
+  animation: lightbox-in 160ms ease-out;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.lightbox-close:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.lightbox-close .pixel-icon {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  color: inherit;
+}
+
+.lightbox-frame {
+  display: grid;
+  place-items: center;
+  width: min(90vw, 56rem);
+  height: min(78vh, 56rem);
+  padding: var(--space-4);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-background);
+  background-image:
+    linear-gradient(45deg, var(--color-surface) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-surface) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-surface) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-surface) 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+}
+
+.lightbox-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.lightbox-caption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  text-align: center;
+}
+
+.lightbox-title {
+  font-size: var(--font-card-title);
+  font-weight: 600;
+}
+
+.lightbox-stats {
+  color: var(--color-text-muted);
+  font-size: var(--font-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes lightbox-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @media (max-width: 720px) {
