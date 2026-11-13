@@ -103,11 +103,18 @@ node scripts/convert-level.mjs 橘猫.png --title 橘猫 --category animal --dif
 
 任何一项校验失败都会打印原因并以非零码退出。成功后脚本写入关卡文件并重建 `index.ts`，颜色编号按像素数量从多到少排，数量相同按十六进制升序，同一张图每次生成的编号一致。两个脚本各自带一份 `*.spec.mjs`，`npm run test:unit` 会一起跑。
 
+## 图标
+
+图标是投放式的：把 SVG 丢进 `src/assets/icons/<图标键>.svg` 就会被 `import.meta.glob` 收进来，文件名必须等于 `src/components/icons.ts` 里的键（`materials`、`collections`、`studio`、`profile`、`levels`、`search`、`check`、`lock` 等），中文名或别的名字匹配不上、会被静默忽略。目前 24 个键都有正式文件，原件按上传者给的名字留在 `docs/assets/icons/`（不入库）。
+
+`src/components/iconSvg.ts` 运行时归一化：取文件自己的 `viewBox`（上传件是 `0 0 1024 1024`），把所有 `fill`/`stroke` 压成 `currentColor`（`none` 保留），剥掉 `script`、`style`、`foreignObject`、动画节点和 `on*` 事件属性，然后内联进 `PixelIcon`。没有对应文件的键回退到 `icons.ts` 的 16×16 像素路径并带 `crispEdges`；有文件的走平滑矢量、不加 `crispEdges`。组件和调用点只认键名，换图不用改代码。
+
 ## 目录
 
 ```
+src/assets/       投放式 SVG 图标，文件名即图标键
 src/canvas/       Canvas 控制器和视口计算，不依赖 Vue
-src/components/   外壳导航、素材卡片、合集卡片、上传对话框、搜索框、分页器、轮播、调色板、画布、结算弹窗、像素风图标
+src/components/   外壳导航、素材卡片、合集卡片、上传对话框、搜索框、分页器、轮播、调色板、画布、结算弹窗、图标表与 SVG 归一化
 src/composables/  进度与设置的共享状态
 src/data/         分类注册表、关卡数据、素材注册表（素材与预设关卡共享像素数据，ID 独立）和合集注册表
 src/models/       PixelArtwork、Level、Collection 与进度类型

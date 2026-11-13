@@ -83,11 +83,12 @@ describe('normalizeIconSvg', () => {
 })
 
 describe('dropped-in icon files', () => {
-  // 所有者上传的 18 个文件（docs/assets/icons 原件拷贝，grid_on/grid_off 改名连字符）
+  // 所有者上传的 24 个文件（docs/assets/icons 存原件，grid_on/grid_off 与六个板块图标改名成图标键）
   const uploaded: IconName[] = [
     'arrow-left', 'arrow-right', 'check', 'clock', 'close', 'compress', 'expand',
     'grid-off', 'grid-on', 'hint', 'lock', 'redo', 'replay', 'settings',
     'sound-off', 'sound-on', 'undo', 'warn',
+    'materials', 'collections', 'studio', 'profile', 'levels', 'search',
   ]
 
   it('wires every uploaded file to its icon name', () => {
