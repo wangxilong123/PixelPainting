@@ -192,6 +192,41 @@ describe('UploadDialog', () => {
     }
   })
 
+  it('accepts manual grid entry, clamps out-of-range, reverts invalid and syncs the slider', async () => {
+    decode.mockResolvedValue(pixelSource(300, 12, Array.from({ length: 3600 }, (_, i) => (i % 7 === 0 ? green : red))))
+    const wrapper = mountDialog()
+    try {
+      await selectFile(wrapper)
+      const number = wrapper.get('input[type="number"]')
+      const slider = wrapper.findAll('input[type="range"]')[0]
+
+      await number.setValue('200')
+      await number.trigger('change')
+      vi.advanceTimersByTime(120)
+      await flushPromises()
+      expect(wrapper.get('.preview-stats').text()).toContain('200×')
+      expect((slider.element as HTMLInputElement).value).toBe('200')
+
+      await number.setValue('999')
+      await number.trigger('change')
+      expect((number.element as HTMLInputElement).value).toBe('256')
+      expect((slider.element as HTMLInputElement).value).toBe('256')
+
+      await number.setValue('5')
+      await number.trigger('change')
+      expect((number.element as HTMLInputElement).value).toBe('16')
+
+      await number.setValue('')
+      await number.trigger('change')
+      expect((number.element as HTMLInputElement).value).toBe('16')
+
+      await slider.setValue(128)
+      expect((number.element as HTMLInputElement).value).toBe('128')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   it('opens a large pixel-image lightbox from the preview corner and closes it without closing the dialog', async () => {
     const wrapper = mountDialog()
     try {

@@ -20,6 +20,7 @@ const thumbnail = ref('')
 const title = ref('')
 const tagsInput = ref('')
 const gridWidth = ref(64)
+const gridDraft = ref(String(gridWidth.value))
 const colorCap = ref(24)
 const partsMode = ref<'auto' | 'none' | '2' | '3'>('auto')
 const busy = ref(false)
@@ -31,6 +32,9 @@ const lightboxOpen = ref(false)
 // 预览画布的内禀渲染基准：按最长边缩到这个像素量级，再交给 CSS 填满预览框，
 // 配合 image-rendering: pixelated 放大也不糊；想更精细调大这个数即可
 const PREVIEW_RENDER_SIZE = 640
+
+const GRID_MIN = 16
+const GRID_MAX = 256
 
 const actualWidth = computed(() => (source.value ? Math.min(gridWidth.value, source.value.width) : 0))
 const effectiveParts = computed<LevelParts | undefined>(() => {
@@ -142,6 +146,11 @@ watch(actualWidth, (width) => {
   if (width > 64 && partsMode.value === 'none') partsMode.value = 'auto'
 })
 
+// 滑杆改动时把数字框同步成当前值；手动输入走 commitGrid 夹取后再写回 gridWidth
+watch(gridWidth, (value) => {
+  gridDraft.value = String(value)
+})
+
 async function onFile(next: File | null): Promise<void> {
   if (!next) return
   error.value = null
@@ -152,6 +161,7 @@ async function onFile(next: File | null): Promise<void> {
     file.value = next
     title.value = next.name.replace(/\.[^.]+$/, '') || '未命名作品'
     gridWidth.value = 64
+    gridDraft.value = String(gridWidth.value)
     colorCap.value = 24
     partsMode.value = 'auto'
     recompute()
@@ -213,6 +223,7 @@ function reset(): void {
   title.value = ''
   tagsInput.value = ''
   gridWidth.value = 64
+  gridDraft.value = String(gridWidth.value)
   colorCap.value = 24
   partsMode.value = 'auto'
   error.value = null
@@ -220,6 +231,13 @@ function reset(): void {
   saving.value = false
   dragOver.value = false
   lightboxOpen.value = false
+}
+
+function commitGrid(): void {
+  const parsed = Number.parseInt(gridDraft.value, 10)
+  const next = Number.isFinite(parsed) ? Math.min(GRID_MAX, Math.max(GRID_MIN, parsed)) : gridWidth.value
+  gridWidth.value = next
+  gridDraft.value = String(next)
 }
 
 function onKeydown(event: KeyboardEvent): void {
@@ -307,10 +325,23 @@ onBeforeUnmount(() => {
             <span class="field-label">标签（逗号分隔，最多 6 个）</span>
             <input v-model="tagsInput" type="text" placeholder="像素, 原创">
           </label>
-          <label class="field">
-            <span class="field-label">目标格数上限 <b>{{ gridWidth }}</b></span>
-            <input v-model.number="gridWidth" type="range" min="16" max="256" step="1">
-          </label>
+          <div class="field">
+            <span class="field-label">目标格数上限
+              <input
+                v-model="gridDraft"
+                class="field-number"
+                type="number"
+                :min="GRID_MIN"
+                :max="GRID_MAX"
+                step="1"
+                inputmode="numeric"
+                aria-label="目标格数上限手动输入"
+                @change="commitGrid"
+                @blur="commitGrid"
+              >
+            </span>
+            <input v-model.number="gridWidth" type="range" :min="GRID_MIN" :max="GRID_MAX" step="1" aria-label="目标格数上限滑块">
+          </div>
           <label class="field">
             <span class="field-label">颜色数上限 <b>{{ colorCap }}</b></span>
             <input v-model.number="colorCap" type="range" min="2" max="64" step="1">
@@ -630,6 +661,23 @@ onBeforeUnmount(() => {
   width: 100%;
   accent-color: var(--color-primary);
   cursor: pointer;
+}
+
+.field-number {
+  width: 4.5rem;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-primary);
+  font-size: var(--font-card-title);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.field-number:focus-visible {
+  border-color: var(--color-focus);
+  outline: none;
 }
 
 .field-hint {
