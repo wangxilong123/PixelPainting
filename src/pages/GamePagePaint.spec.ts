@@ -206,3 +206,82 @@ describe('GamePage free painting', () => {
     }
   })
 })
+
+function userArtwork(id: string): PixelArtwork {
+  return {
+    id,
+    title: '我的作品',
+    tags: ['原创'],
+    width: 2,
+    height: 2,
+    palette: [{ id: 1, hex: '#F4A261', name: '色 1' }],
+    cells: [1, 1, 1, 0],
+  }
+}
+
+describe('GamePage user artwork painting', () => {
+  it('opens a saved user artwork and records it as user progress', async () => {
+    const { saveUserArtwork } = await import('../services/artworkStorage')
+    const art = userArtwork('user-made-1')
+    await saveUserArtwork(art, new Blob(['x'], { type: 'image/png' }))
+
+    const { wrapper, router } = await mountPaint(art.id)
+    try {
+      expect(wrapper.find('.game-page').exists()).toBe(true)
+      expect(wrapper.get('.game-title').text()).toBe('我的作品')
+      const progress = await session()
+      expect(progress.currentProgress.value?.source).toBe('user')
+
+      const { loadProgress } = await import('../services/progressService')
+      expect(loadProgress()[art.id]?.source).toBe('user')
+
+      await button(wrapper, '返回').trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.name).toBe('studio')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('resolves a user artwork that is not yet in the registry', async () => {
+    const { saveUserArtwork } = await import('../services/artworkStorage')
+    const { unregisterUserArtwork, getArtworkById } = await import('../services/artworkService')
+    const art = userArtwork('user-cold-1')
+    await saveUserArtwork(art, new Blob(['x'], { type: 'image/png' }))
+    // 模拟注册表未暖：涂色页应自己按需取作品，而不是直接判失败
+    unregisterUserArtwork(art.id)
+    expect(getArtworkById(art.id)).toBeUndefined()
+
+    const { wrapper } = await mountPaint(art.id)
+    try {
+      expect(wrapper.find('.game-page').exists()).toBe(true)
+      expect(wrapper.get('.game-title').text()).toBe('我的作品')
+      const progress = await session()
+      expect(progress.currentProgress.value?.source).toBe('user')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('settles a user artwork with the studio back label', async () => {
+    const { saveUserArtwork } = await import('../services/artworkStorage')
+    const art = userArtwork('user-done-1')
+    await saveUserArtwork(art, new Blob(['x'], { type: 'image/png' }))
+
+    const { wrapper, stub, router } = await mountPaint(art.id)
+    try {
+      const canvas = wrapper.findComponent(stub)
+      paintAllTargets(canvas)
+      canvas.vm.$emit('completed')
+      await flushPromises()
+
+      const dialog = wrapper.get('[role="dialog"]')
+      expect(dialog.get('h2').text()).toBe('作品完成！')
+      await button(wrapper, '返回制作页').trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.name).toBe('studio')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+})

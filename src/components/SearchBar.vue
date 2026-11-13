@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import PixelIcon from './PixelIcon.vue'
 
+withDefaults(defineProps<{ placeholder?: string; label?: string }>(), {
+  placeholder: '搜索素材名称或标签',
+  label: '搜索素材',
+})
+
 const model = defineModel<string>({ required: true })
 </script>
 
@@ -11,8 +16,8 @@ const model = defineModel<string>({ required: true })
       v-model="model"
       type="search"
       class="search-input"
-      placeholder="搜索素材名称或标签"
-      aria-label="搜索素材"
+      :placeholder="placeholder"
+      :aria-label="label"
     >
     <button
       v-if="model !== ''"

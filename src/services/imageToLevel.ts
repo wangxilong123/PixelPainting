@@ -31,6 +31,10 @@ export type LevelMeta = {
   parts?: LevelParts
   colorNames?: Record<string, string>
   maxColors?: number
+  /** Reduce the palette to at most this many colors instead of rejecting the image. */
+  colorCap?: number
+  /** Grid width cap. Wider sources are downsampled by each cell's most common opaque color. */
+  maxWidth?: number
   mergeDistance?: number
   source?: 'preset' | 'user'
 }
@@ -116,13 +120,109 @@ export function quantizePalette(source: PixelSource, options: QuantizeOptions = 
   return quantizeSource(source, options).palette
 }
 
+function cellRange(total: number, cell: number, count: number): [number, number] {
+  return [Math.floor(cell * total / count), Math.floor((cell + 1) * total / count)]
+}
+
+/** 一格取格内不透明像素的众数色，同票按十六进制升序，和清理脚本的采样口径一致。 */
+export function downsampleSource(source: PixelSource, targetWidth: number): PixelSource {
+  if (!Number.isInteger(targetWidth) || targetWidth < 1) {
+    throw new Error(`目标格数需要正整数，收到 ${targetWidth}`)
+  }
+  const { width, height, data } = source
+  if (targetWidth >= width) return source
+  const targetHeight = Math.max(1, Math.round(height * targetWidth / width))
+  const out = new Uint8ClampedArray(targetWidth * targetHeight * 4)
+
+  for (let cellY = 0; cellY < targetHeight; cellY += 1) {
+    const [top, bottom] = cellRange(height, cellY, targetHeight)
+    for (let cellX = 0; cellX < targetWidth; cellX += 1) {
+      const [left, right] = cellRange(width, cellX, targetWidth)
+      const counts = new Map<string, number>()
+      for (let y = top; y < bottom; y += 1) {
+        for (let x = left; x < right; x += 1) {
+          const offset = (y * width + x) * 4
+          if (data[offset + 3] < alphaThreshold) continue
+          const hex = hexAt(data, offset)
+          counts.set(hex, (counts.get(hex) ?? 0) + 1)
+        }
+      }
+      // 整格没有不透明像素就留透明，涂色时是空格
+      if (counts.size === 0) continue
+      const hex = byCountThenHex(counts)[0]
+      const offset = (cellY * targetWidth + cellX) * 4
+      for (let channel = 0; channel < 3; channel += 1) {
+        out[offset + channel] = Number.parseInt(hex.slice(1 + channel * 2, 3 + channel * 2), 16)
+      }
+      out[offset + 3] = 255
+    }
+  }
+  return { width: targetWidth, height: targetHeight, data: out }
+}
+
+function rgbOf(hex: string): [number, number, number] {
+  return [
+    Number.parseInt(hex.slice(1, 3), 16),
+    Number.parseInt(hex.slice(3, 5), 16),
+    Number.parseInt(hex.slice(5, 7), 16),
+  ]
+}
+
+/** 只保留像素数最多的前 maxColors 种颜色，其余并进最近的保留色，编号从 1 重排。 */
+export function capQuantizedColors(quantized: QuantizedSource, maxColors: number): QuantizedSource {
+  if (!Number.isInteger(maxColors) || maxColors < 1) {
+    throw new Error(`颜色上限需要正整数，收到 ${maxColors}`)
+  }
+  const { palette, ids } = quantized
+  if (palette.length <= maxColors) return quantized
+
+  const kept = palette.slice(0, maxColors)
+  const keptRgb = kept.map((color) => rgbOf(color.hex))
+  const idOfHex = new Map(kept.map((color, index) => [color.hex, index + 1]))
+  const cappedPalette = kept.map((color, index) => ({
+    id: index + 1,
+    hex: color.hex,
+    name: /^色 \d+$/.test(color.name) ? `色 ${index + 1}` : color.name,
+  }))
+
+  const cappedIds = new Map<string, number>()
+  for (const [hex, oldId] of ids) {
+    const original = palette[oldId - 1]
+    if (!original) continue
+    const direct = idOfHex.get(original.hex)
+    if (direct !== undefined) {
+      cappedIds.set(hex, direct)
+      continue
+    }
+    const rgb = rgbOf(original.hex)
+    let bestIndex = 0
+    let bestDistance = Number.POSITIVE_INFINITY
+    for (const [index, candidate] of keptRgb.entries()) {
+      const distance = Math.abs(rgb[0] - candidate[0])
+        + Math.abs(rgb[1] - candidate[1])
+        + Math.abs(rgb[2] - candidate[2])
+      if (distance < bestDistance) {
+        bestDistance = distance
+        bestIndex = index
+      }
+    }
+    cappedIds.set(hex, bestIndex + 1)
+  }
+  return { palette: cappedPalette, ids: cappedIds }
+}
+
 export function imageToLevel(source: PixelSource, meta: LevelMeta): Level {
-  const { palette, ids } = quantizeSource(source, {
+  const prepared = meta.maxWidth !== undefined ? downsampleSource(source, meta.maxWidth) : source
+  let quantized = quantizeSource(prepared, {
     maxColors: meta.maxColors,
     mergeDistance: meta.mergeDistance,
     colorNames: meta.colorNames,
   })
-  const { width, height, data } = source
+  if (meta.colorCap !== undefined) {
+    quantized = capQuantizedColors(quantized, meta.colorCap)
+  }
+  const { palette, ids } = quantized
+  const { width, height, data } = prepared
 
   const cells: number[] = []
   for (let index = 0; index < width * height; index += 1) {

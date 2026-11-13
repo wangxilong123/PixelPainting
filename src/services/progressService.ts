@@ -1,7 +1,7 @@
 import { useLocalStorage } from '../composables/useLocalStorage'
 import type { PixelArtwork } from '../models/artwork'
 import type { Level, LevelProgress, LevelResult, LevelViewport, ProgressSource } from '../models/level'
-import { getArtworkById } from './artworkService'
+import { getArtworkById, isUserArtwork } from './artworkService'
 import { getLevelById, getLevels, getPartRects } from './levelService'
 
 export type ProgressSnapshot = {
@@ -172,7 +172,9 @@ function parseSnapshot(raw: string, legacy: boolean): ProgressSnapshot {
       const work = findWork(id)
       if (!work) continue
       const sourceEntry = id === rawId ? entry : isRecord(entry) ? { ...entry, levelId: id } : entry
-      const fallback: ProgressSource = legacy || getLevelById(id) ? 'level' : 'artwork'
+      const fallback: ProgressSource = legacy || getLevelById(id)
+        ? 'level'
+        : isUserArtwork(id) ? 'user' : 'artwork'
       const progress = parseLevelProgress(work, sourceEntry, fallback)
       if (!progress) continue
       snapshot.records[id] = progress

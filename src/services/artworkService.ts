@@ -1,3 +1,4 @@
+import { shallowReactive } from 'vue'
 import { presetArtworks } from '../data/artworks'
 import { presetCollections } from '../data/collections'
 import type { PixelArtwork } from '../models/artwork'
@@ -34,7 +35,23 @@ for (const collection of presetCollections) {
 }
 
 export function getArtworkById(id: string): PixelArtwork | undefined {
-  return presetArtworks.find((artwork) => artwork.id === id)
+  return presetArtworks.find((artwork) => artwork.id === id) ?? userArtworks.get(id)
+}
+
+// 用户作品在启动时由 artworkStorage 灌入这张响应式表。涂色页与存档解析都走 getArtworkById，
+// 注册必须先于 loadProgressSnapshot，否则用户作品的进度记录会被当成无法解析而丢弃。
+const userArtworks = shallowReactive(new Map<string, PixelArtwork>())
+
+export function registerUserArtwork(artwork: PixelArtwork): void {
+  userArtworks.set(artwork.id, artwork)
+}
+
+export function unregisterUserArtwork(id: string): void {
+  userArtworks.delete(id)
+}
+
+export function isUserArtwork(id: string): boolean {
+  return userArtworks.has(id)
 }
 
 // 标题与标签的大小写不敏感命中；素材库搜索与合集详情内搜索共用这一条判定

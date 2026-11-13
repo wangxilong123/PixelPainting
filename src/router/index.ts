@@ -4,6 +4,7 @@ import LevelSelectPage from '../pages/LevelSelectPage.vue'
 import GamePage from '../pages/GamePage.vue'
 import CollectionsPage from '../pages/CollectionsPage.vue'
 import CollectionDetailPage from '../pages/CollectionDetailPage.vue'
+import StudioPage from '../pages/StudioPage.vue'
 import PlaceholderPage from '../pages/PlaceholderPage.vue'
 
 export function createAppRouter(
@@ -46,7 +47,7 @@ export function createAppRouter(
       {
         path: '/studio',
         name: 'studio',
-        component: PlaceholderPage,
+        component: StudioPage,
         meta: { title: '制作像素图', icon: 'studio' },
       },
       {

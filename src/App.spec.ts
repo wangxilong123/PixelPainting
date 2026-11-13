@@ -57,7 +57,7 @@ describe('App', () => {
   })
 
   it('serves the upcoming sections from placeholder pages', async () => {
-    for (const [path, title] of [['/studio', '制作像素图'], ['/profile', '个人中心']]) {
+    for (const [path, title] of [['/profile', '个人中心']]) {
       const { wrapper, router } = await mountApp(path)
       try {
         expect(router.currentRoute.value.meta.title).toBe(title)
@@ -67,6 +67,18 @@ describe('App', () => {
       } finally {
         wrapper.unmount()
       }
+    }
+  })
+
+  it('serves the studio section with the upload entry', async () => {
+    const { wrapper, router } = await mountApp('/studio')
+    try {
+      expect(router.currentRoute.value.name).toBe('studio')
+      expect(router.currentRoute.value.meta.title).toBe('制作像素图')
+      expect(wrapper.get('main').text()).toContain('制作像素图')
+      expect(wrapper.get('main').text()).toContain('添加图片')
+    } finally {
+      wrapper.unmount()
     }
   })
 

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { imageToLevel, quantizePalette, type PixelSource } from './imageToLevel'
+import {
+  capQuantizedColors,
+  downsampleSource,
+  imageToLevel,
+  quantizePalette,
+  quantizeSource,
+  type PixelSource,
+} from './imageToLevel'
 
 type RGBA = [number, number, number, number]
 
@@ -174,5 +181,186 @@ describe('imageToLevel', () => {
       difficulty: 1,
       maxColors: 1,
     })).toThrow(/2 种颜色/)
+  })
+
+  it('downsamples to the grid cap and numbers the reduced palette by hex', () => {
+    const board = source(4, 4, [
+      red, red, green, green,
+      red, red, green, clear,
+      brown, brown, clear, clear,
+      brown, red, clear, clear,
+    ])
+    const level = imageToLevel(board, {
+      id: 'level-910',
+      title: '降采样',
+      category: 'other',
+      difficulty: 2,
+      maxWidth: 2,
+    })
+
+    expect(level.width).toBe(2)
+    expect(level.height).toBe(2)
+    expect(level.palette.map((color) => color.hex)).toEqual(['#45312F', '#4A9D62', '#F4A261'])
+    expect(level.cells).toEqual([3, 2, 1, 0])
+  })
+
+  it('caps the palette instead of rejecting and remaps dropped colors', () => {
+    const board = source(10, 1, [
+      red, red, red, red, green, green, green, brown, brown, [244, 162, 100, 255],
+    ])
+    const level = imageToLevel(board, {
+      id: 'level-911',
+      title: '限色',
+      category: 'other',
+      difficulty: 2,
+      colorCap: 2,
+    })
+
+    expect(level.palette).toHaveLength(2)
+    expect(level.cells).toEqual([1, 1, 1, 1, 2, 2, 2, 2, 2, 1])
+  })
+
+  it('combines grid cap, color cap and part split', () => {
+    const board = source(4, 4, [
+      red, red, green, green,
+      red, red, green, clear,
+      brown, brown, clear, clear,
+      brown, red, clear, clear,
+    ])
+    const level = imageToLevel(board, {
+      id: 'level-912',
+      title: '组合',
+      category: 'other',
+      difficulty: 3,
+      maxWidth: 2,
+      colorCap: 1,
+      parts: { cols: 2, rows: 2 },
+    })
+
+    expect(level.palette).toHaveLength(1)
+    expect(level.cells).toEqual([1, 1, 1, 0])
+    expect(level.parts).toEqual({ cols: 2, rows: 2 })
+  })
+
+  it('leaves the grid untouched when the cap is not below the source width', () => {
+    const board = source(2, 2, [red, clear, red, green])
+    const level = imageToLevel(board, {
+      id: 'level-913',
+      title: '不缩',
+      category: 'other',
+      difficulty: 1,
+      maxWidth: 5,
+    })
+
+    expect(level.width).toBe(2)
+    expect(level.height).toBe(2)
+    expect(level.cells).toEqual([1, 0, 1, 2])
+  })
+})
+
+describe('downsampleSource', () => {
+  it('takes each cell’s most common opaque color', () => {
+    const board = source(4, 4, [
+      red, red, green, green,
+      red, red, green, clear,
+      brown, brown, clear, clear,
+      brown, red, clear, clear,
+    ])
+
+    expect(downsampleSource(board, 2)).toEqual(source(2, 2, [red, green, brown, clear]))
+  })
+
+  it('breaks a tie by ascending hex', () => {
+    expect(downsampleSource(source(2, 1, [red, green]), 1)).toEqual(source(1, 1, [green]))
+  })
+
+  it('counts alpha 128 as opaque and skips 127', () => {
+    const semi: RGBA = [244, 162, 97, 128]
+    const faint: RGBA = [244, 162, 97, 127]
+
+    expect(downsampleSource(source(2, 1, [semi, faint]), 1)).toEqual(source(1, 1, [red]))
+  })
+
+  it('returns the same source when the target width is not smaller', () => {
+    const board = source(2, 1, [red, green])
+
+    expect(downsampleSource(board, 2)).toBe(board)
+    expect(downsampleSource(board, 5)).toBe(board)
+  })
+
+  it('keeps the aspect ratio and never drops below one row', () => {
+    const board = source(4, 2, [red, red, red, red, red, red, red, red])
+
+    expect(downsampleSource(board, 2)).toEqual(source(2, 1, [red, red]))
+  })
+
+  it('leaves a fully transparent cell transparent', () => {
+    expect(downsampleSource(source(2, 2, [clear, clear, clear, clear]), 1))
+      .toEqual(source(1, 1, [clear]))
+  })
+
+  it('rejects a non-positive-integer target width', () => {
+    const board = source(2, 1, [red, green])
+
+    expect(() => downsampleSource(board, 0)).toThrow(/正整数/)
+    expect(() => downsampleSource(board, 1.5)).toThrow(/正整数/)
+    expect(() => downsampleSource(board, -2)).toThrow(/正整数/)
+  })
+})
+
+describe('capQuantizedColors', () => {
+  const board = source(10, 1, [
+    red, red, red, red, green, green, green, brown, brown, [244, 162, 100, 255],
+  ])
+
+  it('keeps the top colors and remaps the rest to the nearest kept one', () => {
+    const capped = capQuantizedColors(quantizeSource(board), 2)
+
+    expect(capped.palette).toEqual([
+      { id: 1, hex: '#F4A261', name: '色 1' },
+      { id: 2, hex: '#4A9D62', name: '色 2' },
+    ])
+    expect(capped.ids.get('#F4A264')).toBe(1)
+    expect(capped.ids.get('#45312F')).toBe(2)
+  })
+
+  it('returns the same object when the cap is not below the palette size', () => {
+    const quantized = quantizeSource(board)
+
+    expect(capQuantizedColors(quantized, 4)).toBe(quantized)
+    expect(capQuantizedColors(quantized, 10)).toBe(quantized)
+  })
+
+  it('preserves custom names on kept colors', () => {
+    const quantized = quantizeSource(board, { colorNames: { '#F4A261': '橘色' } })
+    const capped = capQuantizedColors(quantized, 1)
+
+    expect(capped.palette).toEqual([{ id: 1, hex: '#F4A261', name: '橘色' }])
+  })
+
+  it('sends an equidistant color to the first kept one', () => {
+    const black: RGBA = [0, 0, 0, 255]
+    const gray: RGBA = [10, 10, 10, 255]
+    const mid: RGBA = [5, 5, 5, 255]
+    const tie = source(6, 1, [black, black, black, gray, gray, mid])
+    const capped = capQuantizedColors(quantizeSource(tie), 2)
+
+    expect(capped.ids.get('#050505')).toBe(1)
+  })
+
+  it('caps after merging near colors', () => {
+    const merged = source(5, 1, [red, red, green, green, [244, 162, 100, 255]])
+    const capped = capQuantizedColors(quantizeSource(merged, { mergeDistance: 3 }), 1)
+
+    expect(capped.palette).toHaveLength(1)
+    expect([...capped.ids.values()].every((id) => id === 1)).toBe(true)
+  })
+
+  it('rejects a non-positive-integer cap', () => {
+    const quantized = quantizeSource(board)
+
+    expect(() => capQuantizedColors(quantized, 0)).toThrow(/正整数/)
+    expect(() => capQuantizedColors(quantized, 1.5)).toThrow(/正整数/)
+    expect(() => capQuantizedColors(quantized, -1)).toThrow(/正整数/)
   })
 })

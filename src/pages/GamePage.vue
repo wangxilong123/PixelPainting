@@ -10,7 +10,8 @@ import PixelIcon from '../components/PixelIcon.vue'
 import { useGameSettings } from '../composables/useGameSettings'
 import { useLevelProgress } from '../composables/useLevelProgress'
 import { playPaintSound } from '../services/audioService'
-import { getArtworkById } from '../services/artworkService'
+import { getArtworkById, isUserArtwork } from '../services/artworkService'
+import { getUserArtwork } from '../services/artworkStorage'
 import { getLevelById, getInteractiveCellCount, getPartRects } from '../services/levelService'
 
 const route = useRoute()
@@ -36,7 +37,16 @@ const workId = computed(() =>
   String((isPaint.value ? route.params.artworkId : route.params.levelId) ?? ''),
 )
 const work = computed(() => (isPaint.value ? getArtworkById(workId.value) : getLevelById(workId.value)))
+const backTarget = computed(() => {
+  if (!isPaint.value) return 'levels'
+  return isUserArtwork(workId.value) ? 'studio' : 'materials'
+})
+const backLabel = computed(() => {
+  if (!isPaint.value) return undefined
+  return isUserArtwork(workId.value) ? '返回制作页' : '返回素材库'
+})
 const entered = ref(false)
+const resolving = ref(false)
 const settingsOpen = ref(false)
 const timingEnabled = ref(true)
 
@@ -241,7 +251,8 @@ function countPainted(): number {
   return count
 }
 
-function enter(id: string): void {
+async function enter(id: string): Promise<void> {
+  resolving.value = false
   stopTimer()
   history.value = []
   redoStack.value = []
@@ -250,10 +261,18 @@ function enter(id: string): void {
   confirmRestart.value = false
   completedGuard = false
   timingEnabled.value = true
+  // 用户作品可能还没进注册表（直接挂载或启动闸门未覆盖），按需取一次暖表
+  if (isPaint.value && !getArtworkById(id)) {
+    resolving.value = true
+    await getUserArtwork(id)
+    // 异步期间可能已切走，别把旧作品塞进新路由；resolving 交给新的 enter 管
+    if (workId.value !== id || route.name !== 'paint') return
+    resolving.value = false
+  }
   const opened = isPaint.value ? openArtwork(id) : openLevel(id)
   if (!opened) {
     entered.value = false
-    router.replace({ name: isPaint.value ? 'materials' : 'levels' })
+    router.replace({ name: backTarget.value })
     return
   }
   entered.value = true
@@ -268,7 +287,7 @@ function enter(id: string): void {
 
 // 离开涂色路由时 workId 会清空，不能再触发进入逻辑，否则失败重定向会连环跳
 watch(workId, (id) => {
-  if (route.name === 'game' || route.name === 'paint') enter(id)
+  if (route.name === 'game' || route.name === 'paint') void enter(id)
 }, { immediate: true })
 onBeforeUnmount(stopTimer)
 
@@ -387,12 +406,13 @@ function goNext(): void {
 
 function backToList(): void {
   dialogOpen.value = false
-  router.push({ name: isPaint.value ? 'materials' : 'levels' })
+  router.push({ name: backTarget.value })
 }
 </script>
 
 <template>
-  <div v-if="entered && work && currentProgress" class="game-page">
+  <div v-if="resolving" class="game-loading" aria-live="polite">正在加载作品…</div>
+  <div v-else-if="entered && work && currentProgress" class="game-page">
     <header v-if="!immersive" class="game-bar">
       <button type="button" @click="backToList">
         <PixelIcon name="arrow-left" />
@@ -530,7 +550,7 @@ function backToList(): void {
       :next-level-id="nextLevelId"
       :level="work"
       :title="isPaint ? '作品完成！' : undefined"
-      :back-label="isPaint ? '返回素材库' : undefined"
+      :back-label="backLabel"
       @next="goNext"
       @replay="doRestart"
       @back="backToList"
@@ -544,6 +564,12 @@ function backToList(): void {
   flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+.game-loading {
+  padding: var(--space-8);
+  color: var(--color-text-muted);
+  text-align: center;
 }
 
 .game-bar {

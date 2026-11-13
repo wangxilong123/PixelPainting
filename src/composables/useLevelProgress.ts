@@ -1,7 +1,7 @@
 import { computed, readonly, shallowRef, type ShallowRef } from 'vue'
 import type { PixelArtwork } from '../models/artwork'
 import type { LevelProgress, LevelResult, LevelViewport } from '../models/level'
-import { getArtworkById } from '../services/artworkService'
+import { getArtworkById, isUserArtwork } from '../services/artworkService'
 import { getLevelById, getLevels, getPartRects, type PartRect } from '../services/levelService'
 import {
   createEmptyProgress,
@@ -107,7 +107,8 @@ export function useLevelProgress() {
     const artwork = getArtworkById(artworkId)
     if (!artwork) return false
 
-    const progress = state.value.records[artworkId] ?? createEmptyProgress(artwork, 'artwork')
+    const progress = state.value.records[artworkId]
+      ?? createEmptyProgress(artwork, isUserArtwork(artworkId) ? 'user' : 'artwork')
     const startedAt = progress.startedAt ?? new Date().toISOString()
     saveAttempt({ ...progress, startedAt })
     return true
