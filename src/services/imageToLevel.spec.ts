@@ -356,6 +356,26 @@ describe('capQuantizedColors', () => {
     expect([...capped.ids.values()].every((id) => id === 1)).toBe(true)
   })
 
+  it('keeps a saturated subject when a gray background floods the count ranking', () => {
+    const grays: RGBA[] = [
+      [20, 20, 20, 255], [40, 40, 40, 255], [60, 60, 60, 255], [80, 80, 80, 255],
+      [100, 100, 100, 255], [120, 120, 120, 255], [140, 140, 140, 255], [160, 160, 160, 255],
+    ]
+    const reds: RGBA[] = [[160, 40, 40, 255], [200, 50, 50, 255], [224, 64, 64, 255]]
+    const pixels: RGBA[] = [
+      ...grays.flatMap((gray) => Array.from({ length: 100 }, () => gray)),
+      ...reds.flatMap((red) => Array.from({ length: 50 }, () => red)),
+    ]
+    const capped = capQuantizedColors(quantizeSource(source(pixels.length, 1, pixels)), 6)
+
+    expect(capped.palette.some((color) => color.hex === '#A02828')).toBe(true)
+    const neutral = capped.palette.filter((color) => {
+      const [r, g, b] = [1, 3, 5].map((at) => Number.parseInt(color.hex.slice(at, at + 2), 16))
+      return r === g && g === b
+    })
+    expect(neutral).toHaveLength(4)
+  })
+
   it('rejects a non-positive-integer cap', () => {
     const quantized = quantizeSource(board)
 

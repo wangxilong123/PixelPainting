@@ -41,6 +41,10 @@ export type LevelMeta = {
 
 const alphaThreshold = 128
 
+// 截断调色板时跳过与已保留色过近的近似色：照片的大面积背景会产生几十种几乎相同的
+// 灰/暗色，按纯像素数取前 N 会把名额耗光、把主体的鲜艳色挤掉并snap成灰（整图变黑白）
+const capMergeDistance = 60
+
 function hexAt(data: Uint8ClampedArray, offset: number): string {
   let hex = '#'
   for (let channel = 0; channel < 3; channel += 1) {
@@ -176,7 +180,12 @@ export function capQuantizedColors(quantized: QuantizedSource, maxColors: number
   const { palette, ids } = quantized
   if (palette.length <= maxColors) return quantized
 
-  const kept = palette.slice(0, maxColors)
+  const kept: PaletteColor[] = []
+  for (const color of palette) {
+    if (kept.length >= maxColors) break
+    if (kept.some((candidate) => channelDistance(color.hex, candidate.hex) <= capMergeDistance)) continue
+    kept.push(color)
+  }
   const keptRgb = kept.map((color) => rgbOf(color.hex))
   const idOfHex = new Map(kept.map((color, index) => [color.hex, index + 1]))
   const cappedPalette = kept.map((color, index) => ({
