@@ -673,6 +673,14 @@ onBeforeUnmount(() => {
   font-size: var(--font-card-title);
   font-variant-numeric: tabular-nums;
   text-align: right;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.field-number::-webkit-outer-spin-button,
+.field-number::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .field-number:focus-visible {
