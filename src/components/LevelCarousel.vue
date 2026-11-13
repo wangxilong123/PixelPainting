@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import type { Level, LevelProgress } from '../models/level'
 import { getLevels } from '../services/levelService'
-import { isLevelCleared, isLevelUnlocked } from '../services/progressService'
+import { isLevelCleared, isLevelEnterable } from '../services/progressService'
 import LevelCard from './LevelCard.vue'
 import PixelIcon from './PixelIcon.vue'
 
@@ -20,7 +20,7 @@ const emit = defineEmits<{
 const track = ref<HTMLElement | null>(null)
 const activeIndex = ref(0)
 
-// 解锁按全局顺序判断，分类筛选只决定轮播里显示哪些关卡
+// 可进入按全局顺序判断（已通关的关卡即使前置被清零也能重玩），分类筛选只决定轮播里显示哪些关卡
 const allLevels = getLevels()
 
 const entries = computed(() =>
@@ -28,7 +28,7 @@ const entries = computed(() =>
     const attempt = props.records[level.id]
     return {
       level,
-      unlocked: isLevelUnlocked(allLevels, props.records, level.id),
+      unlocked: isLevelEnterable(allLevels, props.records, level.id),
       cleared: isLevelCleared(level, attempt),
     }
   }),

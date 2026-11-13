@@ -10,10 +10,9 @@ import type { LevelProgress, ProgressSource } from '../models/level'
 import { artworkMatchesQuery, getAllArtworks } from '../services/artworkService'
 import { listUserArtworks, storageNotice } from '../services/artworkStorage'
 import { getLevels } from '../services/levelService'
-import { getLevelSummary, isLevelUnlocked, loadProgress } from '../services/progressService'
+import { getLevelSummary, loadProgress } from '../services/progressService'
 import { getPortfolio, getPlayerStats, type PortfolioEntry } from '../services/statsService'
 
-const levels = getLevels()
 const works = ref<PixelArtwork[]>([])
 const records = ref<Record<string, LevelProgress>>({})
 const loading = ref(true)
@@ -67,21 +66,13 @@ function formatCompletedAt(iso?: string): string {
     + ` ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-function isReplayable(entry: PortfolioEntry): boolean {
-  return entry.source !== 'level' || isLevelUnlocked(levels, records.value, entry.artwork.id)
-}
-
-// 已通关但前置关卡进度被重置时关卡页会拒进并弹回选关页，这里直接给选关页，不做死链
 function entryRoute(entry: PortfolioEntry): RouteLocationRaw {
   if (entry.source !== 'level') return { name: 'paint', params: { artworkId: entry.artwork.id } }
-  return isReplayable(entry)
-    ? { name: 'game', params: { levelId: entry.artwork.id } }
-    : { name: 'levels' }
+  return { name: 'game', params: { levelId: entry.artwork.id } }
 }
 
 function entryAction(entry: PortfolioEntry): string {
-  if (entry.source !== 'level') return '查看作品'
-  return isReplayable(entry) ? '重玩关卡' : '去选关页'
+  return entry.source === 'level' ? '重玩关卡' : '查看作品'
 }
 </script>
 

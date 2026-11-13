@@ -85,6 +85,18 @@ export function isLevelUnlocked(
   return levels.slice(0, index).every((level) => isLevelCleared(level, progress[level.id]))
 }
 
+// 通关记录不会被前置关卡的进度重置带走，所以已通关的关卡永远能重进
+export function isLevelEnterable(
+  levels: Level[],
+  progress: Record<string, LevelProgress>,
+  levelId: string,
+): boolean {
+  const level = levels.find((item) => item.id === levelId)
+  if (!level) return false
+
+  return isLevelUnlocked(levels, progress, levelId) || isLevelCleared(level, progress[levelId])
+}
+
 export function getLevelSummary(records: Record<string, LevelProgress>): LevelSummary {
   const levels = getLevels()
   let completed = 0

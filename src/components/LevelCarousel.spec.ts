@@ -225,6 +225,28 @@ describe('LevelCarousel', () => {
     expect(cards[cards.length - 1].attributes('aria-disabled')).toBe('true')
   })
 
+  it('replays a cleared level whose predecessors were reset', async () => {
+    const records: Record<string, LevelProgress> = {
+      [second.id]: {
+        levelId: second.id,
+        painted: [...second.cells],
+        hintsUsed: 0,
+        elapsedSeconds: 12,
+        completedAt: '2026-11-05T10:00:00.000Z',
+      },
+    }
+    const { wrapper } = mountCarousel({ records })
+
+    const card = wrapper.get(`[data-level-id="${second.id}"]`)
+    expect(card.attributes('aria-disabled')).toBeUndefined()
+    expect(card.text()).toContain('已完成')
+    expect(card.text()).not.toContain('锁定')
+    expect(wrapper.get(`[data-level-id="${third.id}"]`).attributes('aria-disabled')).toBe('true')
+
+    await card.trigger('click')
+    expect(wrapper.emitted('open')).toEqual([[second.id]])
+  })
+
   it('drops smooth scrolling when the player prefers reduced motion', async () => {
     stubMotion(true)
     const { wrapper, track } = mountCarousel({ modelValue: first.id })

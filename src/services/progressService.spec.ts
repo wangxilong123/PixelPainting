@@ -2,7 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { presetArtworks } from '../data/artworks'
 import type { Level, LevelProgress } from '../models/level'
 import { getLevelById, getLevels } from './levelService'
-import { createEmptyProgress, getLevelSummary, isLevelComplete, isLevelUnlocked } from './progressService'
+import {
+  createEmptyProgress,
+  getLevelSummary,
+  isLevelComplete,
+  isLevelEnterable,
+  isLevelUnlocked,
+} from './progressService'
 
 const sample: Level = {
   id: 'test-level',
@@ -70,6 +76,34 @@ describe('progress rules', () => {
     expect(isLevelUnlocked(levels, { [first.id]: replay }, second.id)).toBe(true)
     expect(isLevelUnlocked(levels, {
       [first.id]: { ...replay, bestResult: { ...bestResult, completedAt: 'invalid' } },
+    }, second.id)).toBe(false)
+  })
+
+  it('lets a cleared level be re-entered even when its predecessors were reset', () => {
+    const levels = getLevels()
+    const [first, second, third] = levels
+    const secondDone = { [second.id]: completedProgress(second) }
+
+    expect(isLevelEnterable(levels, {}, first.id)).toBe(true)
+    expect(isLevelEnterable(levels, {}, second.id)).toBe(false)
+    expect(isLevelUnlocked(levels, secondDone, second.id)).toBe(false)
+    expect(isLevelEnterable(levels, secondDone, second.id)).toBe(true)
+    expect(isLevelEnterable(levels, secondDone, third.id)).toBe(false)
+    expect(isLevelEnterable(levels, secondDone, 'unknown')).toBe(false)
+    expect(isLevelEnterable([], secondDone, second.id)).toBe(false)
+  })
+
+  it('lets a replay in progress be re-entered through its best result', () => {
+    const levels = getLevels()
+    const [, second] = levels
+    const replay: LevelProgress = {
+      ...createEmptyProgress(second),
+      bestResult: { completedAt, elapsedSeconds: 21, hintsUsed: 0 },
+    }
+
+    expect(isLevelEnterable(levels, { [second.id]: replay }, second.id)).toBe(true)
+    expect(isLevelEnterable(levels, {
+      [second.id]: { ...replay, bestResult: { completedAt: 'invalid', elapsedSeconds: 21, hintsUsed: 0 } },
     }, second.id)).toBe(false)
   })
 

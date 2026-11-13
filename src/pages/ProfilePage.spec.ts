@@ -199,7 +199,7 @@ describe('ProfilePage', () => {
     }
   })
 
-  it('sends a completed but re-locked level to the level list instead of a dead link', async () => {
+  it('replays a completed level even when its predecessors were reset', async () => {
     const { getLevels, createAppRouter, ProfilePage } = await loadProfile()
     const [first, second] = getLevels()
     seed({
@@ -209,8 +209,8 @@ describe('ProfilePage', () => {
     const { wrapper } = await mountProfile(ProfilePage, createAppRouter)
     try {
       const card = wrapper.get('.artwork-card')
-      expect(card.attributes('href')).toBe('/levels')
-      expect(card.attributes('aria-label')).toBe(`${second.title}，去选关页`)
+      expect(card.attributes('href')).toBe(`/game/${second.id}`)
+      expect(card.attributes('aria-label')).toBe(`${second.title}，重玩关卡`)
       expect(wrapper.get('.card-badge').text()).toBe('关卡')
     } finally {
       wrapper.unmount()

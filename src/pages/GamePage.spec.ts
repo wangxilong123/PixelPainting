@@ -145,6 +145,32 @@ describe('GamePage', () => {
     played.wrapper.unmount()
   })
 
+  it('replays a cleared level whose predecessors were reset', async () => {
+    await seedCompleted([second.id])
+    const { wrapper, router, stub } = await mountGame(second.id)
+    try {
+      expect(router.currentRoute.value.path).toBe(`/game/${second.id}`)
+      expect(wrapper.find('.game-page').exists()).toBe(true)
+
+      await button(wrapper, '重新开始').trigger('click')
+      await button(wrapper, '确认重新开始').trigger('click')
+      await flushPromises()
+
+      const canvas = wrapper.findComponent(stub)
+      const readPainted = canvas.props('readPainted') as () => readonly number[]
+      expect(readPainted().every((color) => color === 0)).toBe(true)
+      const session = await progressSession()
+      expect(session.currentProgress.value?.bestResult?.completedAt).toBe(completedAt)
+
+      const [index, color] = firstTarget(second)
+      const commitPaint = canvas.props('commitPaint') as (i: number, c: number) => string
+      expect(commitPaint(index, color)).toBe('painted')
+      expect(readPainted()[index]).toBe(color)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   it('restores painted cells, hints, viewport and the elapsed baseline after reload', async () => {
     const { createEmptyProgress, saveProgressSnapshot } = await import('../services/progressService')
     const painted = first.cells.map(() => 0)

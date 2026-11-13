@@ -6,7 +6,7 @@ import { getLevelById, getLevels, getPartRects, type PartRect } from '../service
 import {
   createEmptyProgress,
   isLevelComplete,
-  isLevelUnlocked,
+  isLevelEnterable,
   isLevelViewport,
   loadProgressSnapshot,
   saveProgressSnapshot,
@@ -19,8 +19,8 @@ let sharedState: ShallowRef<ProgressSnapshot> | undefined
 function restoreProgress(): ProgressSnapshot {
   const snapshot = loadProgressSnapshot()
   const id = snapshot.currentId
-  // 自由涂色没有解锁；只有当前项是关卡且未解锁时才回退
-  if (id !== null && getLevelById(id) && !isLevelUnlocked(levels, snapshot.records, id)) {
+  // 自由涂色没有解锁；只有当前项是关卡且进不去时才回退
+  if (id !== null && getLevelById(id) && !isLevelEnterable(levels, snapshot.records, id)) {
     return { ...snapshot, currentId: null }
   }
   return snapshot
@@ -95,7 +95,7 @@ export function useLevelProgress() {
   function openLevel(levelId: string): boolean {
     const level = getLevelById(levelId)
     const records = state.value.records
-    if (!level || !isLevelUnlocked(levels, records, levelId)) return false
+    if (!level || !isLevelEnterable(levels, records, levelId)) return false
 
     const progress = records[levelId] ?? createEmptyProgress(level)
     const startedAt = progress.startedAt ?? new Date().toISOString()
@@ -226,7 +226,7 @@ export function useLevelProgress() {
     if (index === -1) return
 
     const next = levels[index + 1]
-    if (next && isLevelUnlocked(levels, state.value.records, next.id)) return next.id
+    if (next && isLevelEnterable(levels, state.value.records, next.id)) return next.id
   }
 
   return {

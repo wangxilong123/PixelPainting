@@ -222,6 +222,32 @@ describe('useLevelProgress', () => {
     expect(progress.currentProgress.value?.bestResult?.elapsedSeconds).toBe(8)
   })
 
+  it('re-enters a cleared level whose predecessors were reset', async () => {
+    const { createEmptyProgress, saveProgressSnapshot } = await import('../services/progressService')
+    const third = getLevels()[2]
+    saveProgressSnapshot({
+      currentId: second.id,
+      records: {
+        [second.id]: {
+          ...createEmptyProgress(second),
+          painted: [...second.cells],
+          completedAt: finishTime,
+          elapsedSeconds: 19,
+        },
+      },
+    })
+    const progress = await session()
+    expect(progress.currentLevelId.value).toBe(second.id)
+    expect(progress.openLevel(second.id)).toBe(true)
+    expect(progress.openLevel(third.id)).toBe(false)
+
+    progress.restartLevel()
+    expect(paintedCount(progress)).toBe(0)
+    expect(progress.currentProgress.value?.bestResult).toEqual({
+      completedAt: finishTime, elapsedSeconds: 19, hintsUsed: 0,
+    })
+  })
+
   it('keeps the result of a restored completed attempt that has no best result yet', async () => {
     const { createEmptyProgress, saveProgressSnapshot } = await import('../services/progressService')
     saveProgressSnapshot({
