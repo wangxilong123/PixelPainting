@@ -12,5 +12,4 @@ export type PixelArtwork = {
   /** Chunked painting over the whole grid. Only 2×2 and 3×3 count; anything else is one part. */
   parts?: LevelParts
   thumbnail?: string
-  collectionIds?: string[]
 }
