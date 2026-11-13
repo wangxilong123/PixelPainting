@@ -8,14 +8,20 @@ const names = Object.keys(iconPaths) as IconName[]
 
 describe('PixelIcon', () => {
   it('renders the placeholder paths with currentColor and crisp edges', () => {
-    const wrapper = mount(PixelIcon, { props: { name: 'reset-view' } })
-    const svg = wrapper.get('svg')
+    const original = iconFiles['reset-view']
+    delete iconFiles['reset-view']
+    try {
+      const wrapper = mount(PixelIcon, { props: { name: 'reset-view' } })
+      const svg = wrapper.get('svg')
 
-    expect(svg.attributes('fill')).toBe('currentColor')
-    expect(svg.attributes('shape-rendering')).toBe('crispEdges')
-    expect(svg.attributes('aria-hidden')).toBe('true')
-    expect(svg.attributes('data-name')).toBe('reset-view')
-    expect(wrapper.findAll('path').map((path) => path.attributes('d'))).toEqual([...iconPaths['reset-view']])
+      expect(svg.attributes('fill')).toBe('currentColor')
+      expect(svg.attributes('shape-rendering')).toBe('crispEdges')
+      expect(svg.attributes('aria-hidden')).toBe('true')
+      expect(svg.attributes('data-name')).toBe('reset-view')
+      expect(wrapper.findAll('path').map((path) => path.attributes('d'))).toEqual([...iconPaths['reset-view']])
+    } finally {
+      iconFiles['reset-view'] = original
+    }
   })
 
   it('exposes the icon name for the semantic color selectors', () => {
@@ -77,27 +83,34 @@ describe('normalizeIconSvg', () => {
   })
 
   it('falls back to the placeholder paths while no file has been dropped in', () => {
-    expect(resolveIcon('reset-view').crisp).toBe(true)
-    expect(resolveIcon('reset-view').body).toContain(iconPaths['reset-view'][0])
+    const original = iconFiles['reset-view']
+    delete iconFiles['reset-view']
+    try {
+      expect(resolveIcon('reset-view').crisp).toBe(true)
+      expect(resolveIcon('reset-view').body).toContain(iconPaths['reset-view'][0])
+    } finally {
+      iconFiles['reset-view'] = original
+    }
   })
 })
 
 describe('dropped-in icon files', () => {
-  // 所有者上传的 24 个文件（docs/assets/icons 存原件，grid_on/grid_off 与六个板块图标改名成图标键）
-  const uploaded: IconName[] = [
-    'arrow-left', 'arrow-right', 'check', 'clock', 'close', 'compress', 'expand',
-    'grid-off', 'grid-on', 'hint', 'lock', 'redo', 'replay', 'settings',
+  // 26 个键都有正式文件：24 个所有者上传（docs/assets/icons 存原件，grid_on/grid_off 与六个板块图标改名成图标键）
+  // + reset-view/clock-off 两个自绘（1024 网格、单 path、fill 走归一化）
+  const fileBacked: IconName[] = [
+    'arrow-left', 'arrow-right', 'check', 'clock', 'clock-off', 'close', 'compress', 'expand',
+    'grid-off', 'grid-on', 'hint', 'lock', 'redo', 'replay', 'reset-view', 'settings',
     'sound-off', 'sound-on', 'undo', 'warn',
     'materials', 'collections', 'studio', 'profile', 'levels', 'search',
   ]
   const boardIcons: IconName[] = ['materials', 'collections', 'studio', 'profile', 'levels', 'search']
 
-  it('wires every uploaded file to its icon name', () => {
-    for (const name of uploaded) expect(iconFiles[name], name).toBeDefined()
+  it('wires every file-backed icon to its icon name', () => {
+    for (const name of fileBacked) expect(iconFiles[name], name).toBeDefined()
   })
 
-  it('renders uploaded files as themeable vector paint, not placeholder pixels', () => {
-    for (const name of uploaded) {
+  it('renders file-backed icons as themeable vector paint, not placeholder pixels', () => {
+    for (const name of fileBacked) {
       const source = resolveIcon(name)
       expect(source.crisp, name).toBe(false)
       expect(source.body, name).toContain('<path')
@@ -107,7 +120,7 @@ describe('dropped-in icon files', () => {
     }
   })
 
-  it('mounts an uploaded icon at the requested size with the file viewBox', () => {
+  it('mounts a file-backed icon at the requested size with the file viewBox', () => {
     const wrapper = mount(PixelIcon, { props: { name: 'hint', size: 20 } })
     const svg = wrapper.get('svg')
     expect(svg.attributes('viewBox')).toBe('0 0 1024 1024')

@@ -105,7 +105,7 @@ node scripts/convert-level.mjs 橘猫.png --title 橘猫 --category animal --dif
 
 ## 图标
 
-图标是投放式的：把 SVG 丢进 `src/assets/icons/<图标键>.svg` 就会被 `import.meta.glob` 收进来，文件名必须等于 `src/components/icons.ts` 里的键（`materials`、`collections`、`studio`、`profile`、`levels`、`search`、`check`、`lock` 等），中文名或别的名字匹配不上、会被静默忽略。目前 24 个键都有正式文件，原件按上传者给的名字留在 `docs/assets/icons/`（不入库）。
+图标是投放式的：把 SVG 丢进 `src/assets/icons/<图标键>.svg` 就会被 `import.meta.glob` 收进来，文件名必须等于 `src/components/icons.ts` 里的键（`materials`、`collections`、`studio`、`profile`、`levels`、`search`、`check`、`lock` 等），中文名或别的名字匹配不上、会被静默忽略。目前 26 个键都有正式文件：24 个是所有者上传（原件按上传者给的名字留在 `docs/assets/icons/`，不入库），`reset-view`（十字准星）与 `clock-off`（斜杠时钟）是自绘补位，同样走 1024 网格单 path。
 
 `src/components/iconSvg.ts` 运行时归一化：取文件自己的 `viewBox`（上传件是 `0 0 1024 1024`），把所有 `fill`/`stroke` 压成 `currentColor`（`none` 保留），剥掉 `script`、`style`、`foreignObject`、动画节点和 `on*` 事件属性，然后内联进 `PixelIcon`。没有对应文件的键回退到 `icons.ts` 的 16×16 像素路径并带 `crispEdges`；有文件的走平滑矢量、不加 `crispEdges`。组件和调用点只认键名，换图不用改代码。
 
