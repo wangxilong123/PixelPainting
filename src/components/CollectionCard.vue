@@ -26,6 +26,12 @@ const extraCount = computed(() => Math.max(0, members.value.length - shownMember
         :src="collection.cover"
         :alt="`${collection.title} 封面`"
       >
+      <img
+        v-else-if="coverArtwork?.thumbnail"
+        class="cover-img"
+        :src="coverArtwork.thumbnail"
+        :alt="`${coverArtwork.title} 封面`"
+      >
       <PixelPreview v-else-if="coverArtwork" class="cover-preview" :level="coverArtwork" />
       <span class="cover-badge"><PixelIcon name="collections" /></span>
       <span v-if="mine" class="cover-mine">我的</span>

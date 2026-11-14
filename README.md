@@ -57,7 +57,7 @@ npm run build      # vue-tsc 类型检查 + vite build
 | `id` | 全局唯一，路由参数用它 |
 | `title` | 中文合集名 |
 | `tags` | 标签列表，列表页搜索匹配名称和标签 |
-| `cover` | 封面图地址，复用内含素材的缩略图；留空时回退到首幅素材的 `PixelPreview` |
+| `cover` | 封面图地址，复用内含素材的缩略图；留空时回退到首幅成员的缩略图，首幅也没有缩略图（小图预设）才用 `PixelPreview`。用户合集 `cover` 恒为空，封面取首幅成员缩略图——上传的大图若走 `PixelPreview` 会缩成亚像素格点、视觉上等于没封面 |
 | `artworkIds` | 内含素材 ID，详情页按这个顺序展示 |
 
 注册表加载时校验 ID 不重复、引用的素材都存在，违反直接抛错。新增预设合集只改 `src/data/collections.ts`，不用动组件。查询走 `src/services/artworkService.ts` 的 `searchCollections`（空词返回全部，按名称或标签匹配）和 `getCollectionById`（返回 `{ collection, artworks }`，未知 ID 返回 `undefined`）。

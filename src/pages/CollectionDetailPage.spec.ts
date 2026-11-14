@@ -2,8 +2,9 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory } from 'vue-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 import CollectionDetailPage from './CollectionDetailPage.vue'
+import type { PixelArtwork } from '../models/artwork'
 import { createAppRouter } from '../router'
-import { getCollectionById } from '../services/artworkService'
+import { getCollectionById, registerUserArtwork, unregisterUserArtwork } from '../services/artworkService'
 import { loadUserCollections, saveUserCollection } from '../services/collectionStorage'
 
 beforeEach(() => {
@@ -162,6 +163,32 @@ describe('CollectionDetailPage user collections', () => {
       expect(getCollectionById(record.id)?.collection.id).toBe(record.id)
     } finally {
       wrapper.unmount()
+    }
+  })
+
+  it('shows the first member thumbnail as the detail cover', async () => {
+    const artwork: PixelArtwork = {
+      id: 'user-detail-cover',
+      title: '我的大图',
+      tags: ['原创'],
+      width: 1,
+      height: 1,
+      palette: [{ id: 1, hex: '#FFCC66', name: '琥珀' }],
+      cells: [1],
+      thumbnail: 'data:image/png;base64,COVER',
+    }
+    registerUserArtwork(artwork)
+    try {
+      const record = saveUserCollection({ title: '封面详情', tags: [], artworkIds: [artwork.id, 'art-001'] })
+      const { wrapper } = await mountDetail(record.id)
+      try {
+        expect(wrapper.get('.detail-cover img').attributes('src')).toBe(artwork.thumbnail)
+        expect(wrapper.find('.detail-cover .pixel-preview').exists()).toBe(false)
+      } finally {
+        wrapper.unmount()
+      }
+    } finally {
+      unregisterUserArtwork(artwork.id)
     }
   })
 })

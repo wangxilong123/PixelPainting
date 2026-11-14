@@ -113,6 +113,11 @@ function undoDelete(): void {
           :src="data.collection.cover"
           :alt="`${data.collection.title} 封面`"
         >
+        <img
+          v-else-if="artworks[0]?.thumbnail"
+          :src="artworks[0].thumbnail"
+          :alt="`${artworks[0].title} 封面`"
+        >
         <PixelPreview v-else-if="artworks[0]" :level="artworks[0]" />
       </span>
       <span class="detail-heading">

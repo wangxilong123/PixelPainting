@@ -3,7 +3,9 @@ import { createMemoryHistory } from 'vue-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 import CollectionsPage from './CollectionsPage.vue'
 import { presetCollections } from '../data/collections'
+import type { PixelArtwork } from '../models/artwork'
 import { createAppRouter } from '../router'
+import { registerUserArtwork, unregisterUserArtwork } from '../services/artworkService'
 import { loadUserCollections, saveUserCollection } from '../services/collectionStorage'
 
 beforeEach(() => {
@@ -145,6 +147,38 @@ describe('CollectionsPage', () => {
       expect(wrapper.find('.cover-mine').exists()).toBe(false)
     } finally {
       wrapper.unmount()
+    }
+  })
+
+  it('covers user collections with the first member thumbnail, falling back to pixel preview', async () => {
+    const artwork: PixelArtwork = {
+      id: 'user-cover-test',
+      title: '我的大图',
+      tags: ['原创'],
+      width: 1,
+      height: 1,
+      palette: [{ id: 1, hex: '#FFCC66', name: '琥珀' }],
+      cells: [1],
+      thumbnail: 'data:image/png;base64,COVER',
+    }
+    registerUserArtwork(artwork)
+    try {
+      saveUserCollection({ title: '有缩略图', tags: [], artworkIds: [artwork.id] })
+      saveUserCollection({ title: '无缩略图', tags: [], artworkIds: ['art-001'] })
+      const { wrapper } = await mountPage()
+      try {
+        const cards = wrapper.findAll('.collection-card')
+        const withThumb = cards.find((card) => card.find('.card-title').text() === '有缩略图')!
+        const withoutThumb = cards.find((card) => card.find('.card-title').text() === '无缩略图')!
+        expect(withThumb.get('.card-cover img.cover-img').attributes('src')).toBe(artwork.thumbnail)
+        expect(withThumb.find('.card-cover .pixel-preview').exists()).toBe(false)
+        expect(withoutThumb.find('.card-cover img.cover-img').exists()).toBe(false)
+        expect(withoutThumb.find('.card-cover .pixel-preview').exists()).toBe(true)
+      } finally {
+        wrapper.unmount()
+      }
+    } finally {
+      unregisterUserArtwork(artwork.id)
     }
   })
 })
