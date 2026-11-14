@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { presetArtworks } from '../data/artworks'
 import { presetCollections } from '../data/collections'
 import type { PixelArtwork } from '../models/artwork'
@@ -9,11 +9,14 @@ import {
   getAllArtworks,
   getArtworkById,
   getCollectionById,
+  getUserCollection,
+  isUserCollection,
   registerUserArtwork,
   searchArtworks,
   searchCollections,
   unregisterUserArtwork,
 } from './artworkService'
+import { deleteUserCollection, loadUserCollections, saveUserCollection } from './collectionStorage'
 
 describe('artwork registry', () => {
   it('registers the preset levels as artworks with ids of their own', () => {
@@ -168,5 +171,63 @@ describe('getCollectionById', () => {
     expect(result?.artworks).toEqual([])
     vi.doUnmock('../data/collections')
     vi.resetModules()
+  })
+})
+
+describe('user collection queries', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    loadUserCollections()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    localStorage.clear()
+    loadUserCollections()
+  })
+
+  it('lists user collections ahead of presets, newest first, and searches both', () => {
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1000)
+    const first = saveUserCollection({ title: '我的 animal 辑', tags: ['原创'], artworkIds: ['art-001'] })
+    nowSpy.mockReturnValue(2000)
+    const second = saveUserCollection({ title: '第二辑', tags: ['动物'], artworkIds: ['art-002'] })
+
+    const all = searchCollections('')
+    expect(all.map((entry) => entry.id)).toEqual([second.id, first.id, ...presetCollections.map((entry) => entry.id)])
+    expect(searchCollections('原创').map((entry) => entry.id)).toEqual([first.id])
+    expect(searchCollections('动物').map((entry) => entry.id)).toEqual([second.id, 'col-animals'])
+    expect(isUserCollection(first.id)).toBe(true)
+    expect(isUserCollection('col-animals')).toBe(false)
+    expect(getUserCollection(first.id)?.title).toBe('我的 animal 辑')
+    expect(getUserCollection('col-animals')).toBeUndefined()
+  })
+
+  it('resolves user collection members in order and skips deleted artworks', () => {
+    const user: PixelArtwork = {
+      id: 'user-gone',
+      title: '会被删的图',
+      tags: [],
+      width: 1,
+      height: 1,
+      palette: [{ id: 1, hex: '#FFFFFF', name: '白' }],
+      cells: [1],
+    }
+    registerUserArtwork(user)
+    const record = saveUserCollection({
+      title: '混合成员',
+      tags: [],
+      artworkIds: ['art-002', 'user-gone', 'art-001'],
+    })
+    expect(getCollectionById(record.id)?.artworks.map((artwork) => artwork.id))
+      .toEqual(['art-002', 'user-gone', 'art-001'])
+
+    // 成员作品被删后，合集详情跳过解析不到的 ID，不连累整个合集
+    unregisterUserArtwork(user.id)
+    expect(getCollectionById(record.id)?.artworks.map((artwork) => artwork.id))
+      .toEqual(['art-002', 'art-001'])
+
+    deleteUserCollection(record.id)
+    expect(getCollectionById(record.id)).toBeUndefined()
+    expect(searchCollections('')).toEqual([...presetCollections])
   })
 })

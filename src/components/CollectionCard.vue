@@ -5,7 +5,7 @@ import { getCollectionById } from '../services/artworkService'
 import PixelIcon from './PixelIcon.vue'
 import PixelPreview from './PixelPreview.vue'
 
-const props = defineProps<{ collection: Collection }>()
+const props = defineProps<{ collection: Collection; mine?: boolean }>()
 
 const members = computed(() => getCollectionById(props.collection.id)?.artworks ?? [])
 const coverArtwork = computed(() => members.value[0])
@@ -28,6 +28,7 @@ const extraCount = computed(() => Math.max(0, members.value.length - shownMember
       >
       <PixelPreview v-else-if="coverArtwork" class="cover-preview" :level="coverArtwork" />
       <span class="cover-badge"><PixelIcon name="collections" /></span>
+      <span v-if="mine" class="cover-mine">我的</span>
     </span>
 
     <span class="card-body">
@@ -114,6 +115,19 @@ const extraCount = computed(() => Math.max(0, members.value.length - shownMember
 .cover-badge .pixel-icon {
   width: var(--icon-size-sm);
   height: var(--icon-size-sm);
+}
+
+.cover-mine {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--color-primary);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-background) 78%, transparent);
+  color: var(--color-primary);
+  font-size: var(--font-tag);
+  font-weight: 600;
 }
 
 .card-body {

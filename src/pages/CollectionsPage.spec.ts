@@ -4,9 +4,11 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import CollectionsPage from './CollectionsPage.vue'
 import { presetCollections } from '../data/collections'
 import { createAppRouter } from '../router'
+import { loadUserCollections, saveUserCollection } from '../services/collectionStorage'
 
 beforeEach(() => {
   localStorage.clear()
+  loadUserCollections()
 })
 
 async function mountPage() {
@@ -60,6 +62,87 @@ describe('CollectionsPage', () => {
       await flushPromises()
       expect(router.currentRoute.value.name).toBe('collection-detail')
       expect(router.currentRoute.value.params.collectionId).toBe('col-animals')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('creates a collection through the editor and lists it ahead of presets', async () => {
+    const { wrapper } = await mountPage()
+    try {
+      await wrapper.get('.collections-add').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('.editor-dialog').exists()).toBe(true)
+
+      const tiles = wrapper.findAll('.picker-tile')
+      await tiles[0].trigger('click')
+      await tiles[1].trigger('click')
+      await wrapper.findAll('.editor-dialog input[type="text"]')[0].setValue('我的专属合集')
+      await wrapper.get('.editor-actions .primary').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.find('.editor-dialog').exists()).toBe(false)
+      expect(wrapper.findAll('.collection-card')).toHaveLength(presetCollections.length + 1)
+      expect(wrapper.findAll('.card-title')[0].text()).toBe('我的专属合集')
+      expect(wrapper.get('.cover-mine').text()).toBe('我的')
+      expect(wrapper.get('.collections-count').text()).toBe(`共 ${presetCollections.length + 1} 个合集`)
+      expect(wrapper.find('.collection-tools').exists()).toBe(true)
+      expect(loadUserCollections()[0].artworkIds).toEqual(['art-001', 'art-002'])
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('edits a user collection in place from the row tools', async () => {
+    const record = saveUserCollection({ title: '待编辑', tags: [], artworkIds: ['art-001'] })
+    const { wrapper } = await mountPage()
+    try {
+      await wrapper.get('.collection-edit').trigger('click')
+      await flushPromises()
+      const input = wrapper.get('.editor-dialog input[type="text"]')
+      expect((input.element as HTMLInputElement).value).toBe('待编辑')
+      await input.setValue('编辑后的合集')
+      await wrapper.get('.editor-actions .primary').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.findAll('.card-title')[0].text()).toBe('编辑后的合集')
+      expect(loadUserCollections()).toHaveLength(1)
+      expect(loadUserCollections()[0].id).toBe(record.id)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('deletes a user collection with two-step confirm and restores it via undo', async () => {
+    saveUserCollection({ title: '待删除', tags: [], artworkIds: ['art-001'] })
+    const { wrapper } = await mountPage()
+    try {
+      expect(wrapper.findAll('.collection-card')).toHaveLength(presetCollections.length + 1)
+
+      await wrapper.get('.collection-delete').trigger('click')
+      expect(wrapper.get('.collection-delete').text()).toContain('确认删除')
+      expect(wrapper.findAll('.collection-card')).toHaveLength(presetCollections.length + 1)
+
+      await wrapper.get('.collection-delete').trigger('click')
+      await flushPromises()
+      expect(wrapper.findAll('.collection-card')).toHaveLength(presetCollections.length)
+      expect(wrapper.get('.collections-undo').text()).toContain('已删除《待删除》')
+
+      await wrapper.get('.collections-undo button').trigger('click')
+      await flushPromises()
+      expect(wrapper.findAll('.collection-card')).toHaveLength(presetCollections.length + 1)
+      expect(wrapper.findAll('.card-title')[0].text()).toBe('待删除')
+      expect(wrapper.find('.collections-undo').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('keeps preset collections read-only', async () => {
+    const { wrapper } = await mountPage()
+    try {
+      expect(wrapper.find('.collection-tools').exists()).toBe(false)
+      expect(wrapper.find('.cover-mine').exists()).toBe(false)
     } finally {
       wrapper.unmount()
     }

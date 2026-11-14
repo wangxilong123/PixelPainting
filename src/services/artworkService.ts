@@ -2,7 +2,7 @@ import { shallowReactive } from 'vue'
 import { presetArtworks } from '../data/artworks'
 import { presetCollections } from '../data/collections'
 import type { PixelArtwork } from '../models/artwork'
-import type { Collection } from '../models/collection'
+import type { Collection, UserCollection } from '../models/collection'
 import { validateLevel } from './levelService'
 
 export type ArtworkPage = {
@@ -54,6 +54,34 @@ export function isUserArtwork(id: string): boolean {
   return userArtworks.has(id)
 }
 
+// 用户合集与用户作品同一套路：响应式注册表由 collectionStorage 灌入，
+// 查询与卡片渲染读这张表，注册/注销后依赖它的 computed 自动刷新。
+const userCollections = shallowReactive(new Map<string, UserCollection>())
+
+export function registerUserCollection(collection: UserCollection): void {
+  userCollections.set(collection.id, collection)
+}
+
+export function unregisterUserCollection(id: string): void {
+  userCollections.delete(id)
+}
+
+export function isUserCollection(id: string): boolean {
+  return userCollections.has(id)
+}
+
+export function getUserCollection(id: string): UserCollection | undefined {
+  return userCollections.get(id)
+}
+
+function byNewestCollection(a: UserCollection, b: UserCollection): number {
+  return b.createdAt - a.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+}
+
+export function listUserCollections(): UserCollection[] {
+  return [...userCollections.values()].sort(byNewestCollection)
+}
+
 /** 预设素材加用户作品的完整清单，供个人中心统计与作品集遍历。 */
 export function getAllArtworks(): PixelArtwork[] {
   return [...presetArtworks, ...userArtworks.values()]
@@ -83,18 +111,25 @@ export function searchArtworks(
   }
 }
 
-export function searchCollections(query: string): Collection[] {
+function collectionMatchesQuery(collection: Collection, query: string): boolean {
   const keyword = query.trim().toLowerCase()
-  if (keyword === '') return [...presetCollections]
-  return presetCollections.filter((collection) => collection.title.toLowerCase().includes(keyword)
-    || collection.tags.some((tag) => tag.toLowerCase().includes(keyword)))
+  if (keyword === '') return true
+  return collection.title.toLowerCase().includes(keyword)
+    || collection.tags.some((tag) => tag.toLowerCase().includes(keyword))
+}
+
+/** 用户合集排在预设前面（最新创建优先），空词返回全部。 */
+export function searchCollections(query: string): Collection[] {
+  const all: Collection[] = [...listUserCollections(), ...presetCollections]
+  return all.filter((collection) => collectionMatchesQuery(collection, query))
 }
 
 export function getCollectionById(
   id: string,
 ): { collection: Collection; artworks: PixelArtwork[] } | undefined {
-  const collection = presetCollections.find((entry) => entry.id === id)
+  const collection = presetCollections.find((entry) => entry.id === id) ?? userCollections.get(id)
   if (!collection) return undefined
+  // 用户合集引用的作品可能已被删除，解析不到的成员直接跳过
   const artworks = collection.artworkIds
     .map((artworkId) => getArtworkById(artworkId))
     .filter((artwork): artwork is PixelArtwork => artwork !== undefined)

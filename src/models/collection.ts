@@ -7,3 +7,9 @@ export type Collection = {
   /** 内含素材 ID，详情页按这个顺序展示。 */
   artworkIds: string[]
 }
+
+/** 玩家自建合集，存 localStorage；封面始终留空，回退到首幅成员的预览。 */
+export type UserCollection = Collection & {
+  createdAt: number
+  updatedAt: number
+}

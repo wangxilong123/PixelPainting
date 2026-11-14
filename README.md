@@ -19,14 +19,14 @@ npm run build      # vue-tsc 类型检查 + vite build
 - `/paint/:artworkId` 自由涂色。和关卡共用一个游戏页，但没有解锁顺序，顶栏可以关计时；进度按素材 ID 单独记录，不影响关卡解锁。
 - `/levels` 横向轮播选关。滚轮、左右方向键或轮播下方的 ‹ › 按钮切换关卡，回车进入；按钮中间是当前位置（第 n / N 关），卡片居中时顶部统计条跟着更新。滚轮横向到头后会把纵向滚动还给页面，不会把页面困在轮播里。分类 chips 只筛选轮播内容，能不能进按全局顺序判断：前置关卡全部通关才解锁，已通关的关卡即使前置进度被清零也照样能重玩（`isLevelEnterable` = 已解锁或已通关），这类卡片显示「已完成」而不是锁标。
 - `/game/:levelId` 涂色。左键填色，右键拖拽平移，滚轮缩放，某个颜色涂完后自动切到调色板里的下一个颜色。顶栏「设置」抽屉里可以开关音效、调色板剩余格数和沉浸模式。
-- `/collections` 合集列表。按主题策展的素材分组，每个合集占一整行（左封面、右名称/标签/成员预览），搜索名称或标签实时筛选，点行进入详情。
-- `/collections/:collectionId` 合集详情。复用素材卡片网格、搜索与分页，按合集内 `artworkIds` 顺序展示成员，可在合集内再搜索；未知 ID 显示「未找到这个合集」并给返回链接。
+- `/collections` 合集列表。按主题策展的素材分组，每个合集占一整行（左封面、右名称/标签/成员预览），搜索名称或标签实时筛选，点行进入详情。顶部「新建合集」可自定义合集：从预设素材和「我的作品」里点选成员（点选顺序即展示顺序，首幅作封面），支持搜索、按来源筛选、前移/后移/移除/清空调序；用户合集排在预设前面、按创建时间倒序，封面右上角带「我的」徽标，卡片右上角两步删除、删后可撤销。预设合集只读，不显示编辑/删除。
+- `/collections/:collectionId` 合集详情。复用素材卡片网格、搜索与分页，按合集内 `artworkIds` 顺序展示成员，可在合集内再搜索；用户作品成员用其缩略图、预设成员用 `PixelPreview`。用户合集标题旁带「我的」徽标，头部有编辑（原地改名/调成员，保留 ID 与创建时间）和两步删除（删后页面切到「合集已删除」并给撤销条）；未知 ID 显示「未找到这个合集」并给返回链接。
 - `/studio` 制作像素图。上传一张图片，浏览器本地把它降采样、量化成可涂色的像素作品，原图与生成数据存进 IndexedDB；顶部是已制作数量与「添加图片」按钮，下方复用素材网格、搜索与分页，点卡片进入自由涂色，卡片右上角两步删除、删后可撤销。
 - `/profile` 个人中心。顶部三张成绩卡片：完成作品数、已涂色像素总数、关卡进度（已通关/总关数）。数字全部从现有存档派生，不另设计数器字段：完成作品数按 `isLevelCleared` 判定（重玩后 `painted` 归零但 `bestResult` 还在，作品照样算完成过），已涂色像素按当前已涂上的可交互格累加（未完成的作品也计入像素，但不进作品集），空格不算。下方作品集只收已完成的作品，按完成时间倒序，卡片带来源徽标（关卡/素材/我的作品）和完成时间，点卡片回关卡页或自由涂色页，关卡条目一律写「重玩关卡」并直接进关卡页，不做选关页兜底。支持按名称或标签搜索、每页 12 幅分页。同一幅图的关卡进度与自由涂色进度按 `source` 各算一份（完成作品数照两份累加）；因素材复用关卡的像素数据，作品集按图像内容（宽高 + 调色板 + `cells`）去重，同一幅图只留最近完成的一条，徽标与完成时间跟着该条走，完成时间取最近一次完成（`completedAt`，重玩清零后回退 `bestResult.completedAt`）。
 
 分块关卡（`parts` 是 2×2 或 3×3）走引导式流程：进关先给整图预览——整幅画平铺上色（涂过的格子显示成品色），叠分块边界，完成的块打勾、下一块描亮边标块号，预览只看不涂，滚轮留给页面滚动。点「开始涂色」（有进度则是「继续涂色」）从第一个未完成的块开始，整图与分块之间用 480ms 缓动缩放过渡（系统开了减弱动态效果就直接切换）。一次只涂一块：块外的格子既不绘制也不响应点击，调色板只摆当前块还有剩余格子的颜色（数量为 0 的直接不显示，涂完一个颜色它的色块就实时撤掉），剩余格数和自动换色只数当前块，提示也只在当前块里找选中色的未涂格；非分块关卡保持整幅调色板、涂完的颜色禁用不隐藏。涂满一块自动回到整图预览，点「下一块」进入下一个未完成的块；最后一块涂满时结算弹窗盖在预览上。格子编号和 `cells` 下标始终按整图算，换块时视口回到该块的适配位置，玩家的缩放平移不跨块保留；解锁、完成判定和提示次数都按整图算。
 
-进度和设置都存在 localStorage，键名分别是 `pixel-painting:v2:progress` 和 `pixel-painting:v1:settings`。进度存档是 `{ currentId, records }`，每条记录带 `source`（`level` / `artwork` / `user`）区分玩法；旧 v1 存档只在 v2 缺席时读一次并迁移写回 v2（丢弃已废弃的 `stars`，重命名关卡的旧键搬到新键），v1 原文不动。沉浸状态不写入存档，刷新后一定回到普通模式。存档里的 `partIndex` 记录玩家当前在涂的块，提示按它限定范围；重进关卡总是先回整图预览，从第一个未完成的块继续。重转关卡改了分块数导致块号越界时只丢这个字段，已涂进度照旧读出来。用户制作的像素图（原图 + 生成数据）另存 IndexedDB（库名 `pixel-painting-studio`），不占 localStorage 配额；存储不可用时降级为仅本次会话可用，并在制作页与个人中心顶部给出提示。
+进度和设置都存在 localStorage，键名分别是 `pixel-painting:v2:progress` 和 `pixel-painting:v1:settings`；自定义合集存 `pixel-painting:v1:collections`（纯元数据数组，不含图像 Blob，所以走 localStorage 而非 IndexedDB）。进度存档是 `{ currentId, records }`，每条记录带 `source`（`level` / `artwork` / `user`）区分玩法；旧 v1 存档只在 v2 缺席时读一次并迁移写回 v2（丢弃已废弃的 `stars`，重命名关卡的旧键搬到新键），v1 原文不动。沉浸状态不写入存档，刷新后一定回到普通模式。存档里的 `partIndex` 记录玩家当前在涂的块，提示按它限定范围；重进关卡总是先回整图预览，从第一个未完成的块继续。重转关卡改了分块数导致块号越界时只丢这个字段，已涂进度照旧读出来。用户制作的像素图（原图 + 生成数据）另存 IndexedDB（库名 `pixel-painting-studio`），不占 localStorage 配额；存储不可用时降级为仅本次会话可用，并在制作页与个人中心顶部给出提示。
 
 ## 关卡数据结构
 
@@ -60,7 +60,12 @@ npm run build      # vue-tsc 类型检查 + vite build
 | `cover` | 封面图地址，复用内含素材的缩略图；留空时回退到首幅素材的 `PixelPreview` |
 | `artworkIds` | 内含素材 ID，详情页按这个顺序展示 |
 
-注册表加载时校验 ID 不重复、引用的素材都存在，违反直接抛错。新增合集只改 `src/data/collections.ts`，不用动组件。查询走 `src/services/artworkService.ts` 的 `searchCollections`（空词返回全部，按名称或标签匹配）和 `getCollectionById`（返回 `{ collection, artworks }`，未知 ID 返回 `undefined`）。
+注册表加载时校验 ID 不重复、引用的素材都存在，违反直接抛错。新增预设合集只改 `src/data/collections.ts`，不用动组件。查询走 `src/services/artworkService.ts` 的 `searchCollections`（空词返回全部，按名称或标签匹配）和 `getCollectionById`（返回 `{ collection, artworks }`，未知 ID 返回 `undefined`）。
+
+自定义合集是 `UserCollection = Collection & { createdAt, updatedAt }`，存 localStorage（`src/services/collectionStorage.ts`），注册进 `artworkService` 的另一张响应式表（`shallowReactive` Map），与预设表互不导入、无循环依赖。`searchCollections` 把用户合集排在预设前面（用户合集按 `createdAt` 倒序、同时间按 ID 升序），`getCollectionById` 先查预设再查用户表，成员按 `artworkIds` 顺序解析、引用已不存在的作品（如被删的用户作品）自动跳过。存储层模块加载即 `loadUserCollections()` 灌表（深链直达详情页也能认得），列表/详情页 setup 再同步一次；写入用 `useLocalStorage`，磁盘写失败时降级为内存暂存、读取仍返回暂存值。
+
+- `saveUserCollection({ id?, title, tags, artworkIds })`：标题去空白非空且 ≤40 字，成员去重后至少一幅且每幅都能解析，标签去空白去重最多 6 个；带 `id` 是编辑（保留 ID 与 `createdAt`、刷新 `updatedAt`，目标不存在抛错），不带是新建（生成 `col-user-<时间戳36>-<计数36>-<随机4>` 形式 ID）。校验失败抛中文错误、不落盘。
+- `deleteUserCollection(id)` 返回被删记录供撤销，`restoreUserCollection(record)` 原样写回（保留时间戳）。`CollectionEditor.vue` 是新建/编辑共用对话框（尺寸旋钮 `--editor-width` 56rem、`--editor-picker-height` 20rem），列表页与详情页的两步删除（3s 确认窗口）和撤销条（6s）各自管理定时器、卸载时清理。
 
 ## 制作像素图
 
@@ -116,11 +121,11 @@ node scripts/convert-level.mjs 橘猫.png --title 橘猫 --category animal --dif
 ```
 src/assets/       投放式 SVG 图标，文件名即图标键
 src/canvas/       Canvas 控制器和视口计算，不依赖 Vue
-src/components/   外壳导航、素材卡片、合集卡片、上传对话框、搜索框、分页器、轮播、调色板、画布、结算弹窗、图标表与 SVG 归一化
+src/components/   外壳导航、素材卡片、合集卡片、合集编辑器、上传对话框、搜索框、分页器、轮播、调色板、画布、结算弹窗、图标表与 SVG 归一化
 src/composables/  进度与设置的共享状态
 src/data/         分类注册表、关卡数据、素材注册表（素材与预设关卡共享像素数据，ID 独立）和合集注册表
-src/models/       PixelArtwork、Level、Collection 与进度类型
+src/models/       PixelArtwork、Level、Collection / UserCollection 与进度类型
 src/pages/        素材页、合集列表/详情页、制作页、个人中心页、选关页、游戏页（关卡/自由涂色/用户作品共用）
-src/services/     关卡与素材查询、进度判定与存档迁移、成绩统计与作品集、分块几何、图片转关卡、图片解码、用户作品存储（IndexedDB）、音效
+src/services/     关卡与素材查询、进度判定与存档迁移、成绩统计与作品集、分块几何、图片转关卡、图片解码、用户作品存储（IndexedDB）、自定义合集存储（localStorage）、音效
 scripts/          投放图清理脚本和 PNG 转关卡脚本
 ```
