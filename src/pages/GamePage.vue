@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import type { PaintResult, PartOverview } from '../canvas/pixelCanvas'
 import ColorPalette from '../components/ColorPalette.vue'
 import CompletionDialog from '../components/CompletionDialog.vue'
@@ -10,6 +10,7 @@ import PixelIcon from '../components/PixelIcon.vue'
 import ThemeToggle from '../components/ThemeToggle.vue'
 import { useGameSettings } from '../composables/useGameSettings'
 import { useLevelProgress } from '../composables/useLevelProgress'
+import { usePaintOrigin } from '../composables/usePaintOrigin'
 import { playPaintSound } from '../services/audioService'
 import { getArtworkById, isUserArtwork } from '../services/artworkService'
 import { getUserArtwork } from '../services/artworkStorage'
@@ -38,14 +39,33 @@ const workId = computed(() =>
   String((isPaint.value ? route.params.artworkId : route.params.levelId) ?? ''),
 )
 const work = computed(() => (isPaint.value ? getArtworkById(workId.value) : getLevelById(workId.value)))
-const backTarget = computed(() => {
-  if (!isPaint.value) return 'levels'
-  return isUserArtwork(workId.value) ? 'studio' : 'materials'
+
+// 返回目标按「从哪个页面点进来」决定，而不是按作品类型：发布到素材库的用户作品
+// 从素材库点开应回素材库，从制作页点开才回制作页。来源由路由 beforeEach 记录。
+const paintOrigin = usePaintOrigin()
+const paintBackLabels: Record<string, string> = {
+  materials: '返回素材库',
+  studio: '返回制作页',
+  'collection-detail': '返回合集',
+  profile: '返回个人中心',
+}
+const paintBack = computed<{ target: RouteLocationRaw; label: string }>(() => {
+  const origin = paintOrigin.value
+  const name = origin?.name
+  if (origin && typeof name === 'string' && name in paintBackLabels) {
+    return { target: { name, params: origin.params }, label: paintBackLabels[name] }
+  }
+  // 深链/刷新没有来源页：预设回素材库，用户作品回制作页（沿用旧默认）
+  return isUserArtwork(workId.value)
+    ? { target: { name: 'studio' }, label: '返回制作页' }
+    : { target: { name: 'materials' }, label: '返回素材库' }
 })
-const backLabel = computed(() => {
-  if (!isPaint.value) return undefined
-  return isUserArtwork(workId.value) ? '返回制作页' : '返回素材库'
-})
+const backTarget = computed<RouteLocationRaw>(() =>
+  isPaint.value ? paintBack.value.target : { name: 'levels' },
+)
+const backLabel = computed<string | undefined>(() =>
+  isPaint.value ? paintBack.value.label : undefined,
+)
 const entered = ref(false)
 const resolving = ref(false)
 const settingsOpen = ref(false)
@@ -273,7 +293,7 @@ async function enter(id: string): Promise<void> {
   const opened = isPaint.value ? openArtwork(id) : openLevel(id)
   if (!opened) {
     entered.value = false
-    router.replace({ name: backTarget.value })
+    router.replace(backTarget.value)
     return
   }
   entered.value = true
@@ -407,7 +427,7 @@ function goNext(): void {
 
 function backToList(): void {
   dialogOpen.value = false
-  router.push({ name: backTarget.value })
+  router.push(backTarget.value)
 }
 </script>
 

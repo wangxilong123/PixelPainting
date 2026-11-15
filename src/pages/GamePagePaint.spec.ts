@@ -68,6 +68,22 @@ async function session() {
   return useLevelProgress()
 }
 
+// 先落到来源页再点进涂色，模拟真实导航；beforeEach 会记下来源，返回应按来源回原页面
+async function mountPaintFrom(originPath: string, artworkId: string) {
+  const { createAppRouter } = await import('../router')
+  const { default: GamePage } = await import('./GamePage.vue')
+  const router = createAppRouter(createMemoryHistory())
+  await router.push(originPath)
+  await router.push(`/paint/${artworkId}`)
+  await router.isReady()
+  const stub = createCanvasStub()
+  const wrapper = mount(GamePage, {
+    global: { plugins: [router], stubs: { PixelCanvas: stub } },
+  })
+  await flushPromises()
+  return { wrapper, router, stub }
+}
+
 function button(wrapper: VueWrapper<any>, text: string) {
   const found = wrapper.findAll('button').find((node) => node.text().includes(text))
   if (!found) throw new Error(`未找到按钮：${text}`)
@@ -277,6 +293,109 @@ describe('GamePage user artwork painting', () => {
 
       const dialog = wrapper.get('[role="dialog"]')
       expect(dialog.get('h2').text()).toBe('作品完成！')
+      await button(wrapper, '返回制作页').trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.name).toBe('studio')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+})
+
+describe('GamePage back navigation follows the origin page', () => {
+  it('returns to materials when a published user artwork is opened from the materials library', async () => {
+    const { saveUserArtwork } = await import('../services/artworkStorage')
+    const { publishArtwork } = await import('../services/materialPublish')
+    const art = userArtwork('user-from-materials')
+    await saveUserArtwork(art, new Blob(['x'], { type: 'image/png' }))
+    publishArtwork(art.id)
+
+    // 作品类型是「用户作品」，但来源是素材库，返回应回素材库而不是制作页
+    const { wrapper, router } = await mountPaintFrom('/', art.id)
+    try {
+      expect(wrapper.get('.game-title').text()).toBe('我的作品')
+      await button(wrapper, '返回').trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.name).toBe('materials')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('returns to studio when a user artwork is opened from the studio page', async () => {
+    const { saveUserArtwork } = await import('../services/artworkStorage')
+    const art = userArtwork('user-from-studio')
+    await saveUserArtwork(art, new Blob(['x'], { type: 'image/png' }))
+
+    const { wrapper, router } = await mountPaintFrom('/studio', art.id)
+    try {
+      await button(wrapper, '返回').trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.name).toBe('studio')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('returns to the same collection detail when opened from a collection', async () => {
+    const { wrapper, router } = await mountPaintFrom('/collections/col-food', presetArtworks[0].id)
+    try {
+      await button(wrapper, '返回').trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.name).toBe('collection-detail')
+      expect(router.currentRoute.value.params.collectionId).toBe('col-food')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('returns to profile when a user artwork is opened from the portfolio', async () => {
+    const { saveUserArtwork } = await import('../services/artworkStorage')
+    const art = userArtwork('user-from-profile')
+    await saveUserArtwork(art, new Blob(['x'], { type: 'image/png' }))
+
+    const { wrapper, router } = await mountPaintFrom('/profile', art.id)
+    try {
+      await button(wrapper, '返回').trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.name).toBe('profile')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('labels the completion back button after the origin page (materials)', async () => {
+    const { saveUserArtwork } = await import('../services/artworkStorage')
+    const { publishArtwork } = await import('../services/materialPublish')
+    const art = userArtwork('user-done-materials')
+    await saveUserArtwork(art, new Blob(['x'], { type: 'image/png' }))
+    publishArtwork(art.id)
+
+    const { wrapper, stub, router } = await mountPaintFrom('/', art.id)
+    try {
+      const canvas = wrapper.findComponent(stub)
+      paintAllTargets(canvas)
+      canvas.vm.$emit('completed')
+      await flushPromises()
+      await button(wrapper, '返回素材库').trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.name).toBe('materials')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('labels the completion back button after the origin page (studio)', async () => {
+    const { saveUserArtwork } = await import('../services/artworkStorage')
+    const art = userArtwork('user-done-studio')
+    await saveUserArtwork(art, new Blob(['x'], { type: 'image/png' }))
+
+    const { wrapper, stub, router } = await mountPaintFrom('/studio', art.id)
+    try {
+      const canvas = wrapper.findComponent(stub)
+      paintAllTargets(canvas)
+      canvas.vm.$emit('completed')
+      await flushPromises()
       await button(wrapper, '返回制作页').trigger('click')
       await flushPromises()
       expect(router.currentRoute.value.name).toBe('studio')

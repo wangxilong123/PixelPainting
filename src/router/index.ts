@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouterHistory } from 'vue-router'
+import { recordPaintOrigin } from '../composables/usePaintOrigin'
 import MaterialsPage from '../pages/MaterialsPage.vue'
 import LevelSelectPage from '../pages/LevelSelectPage.vue'
 import GamePage from '../pages/GamePage.vue'
@@ -10,7 +11,7 @@ import ProfilePage from '../pages/ProfilePage.vue'
 export function createAppRouter(
   history: RouterHistory = createWebHistory(import.meta.env.BASE_URL),
 ) {
-  return createRouter({
+  const router = createRouter({
     history,
     routes: [
       {
@@ -58,4 +59,9 @@ export function createAppRouter(
       },
     ],
   })
+  // 进入自由涂色前记下来源页，返回时按来源回原页面（素材库/制作页/合集详情/个人中心）
+  router.beforeEach((to, from) => {
+    if (to.name === 'paint') recordPaintOrigin(from)
+  })
+  return router
 }
