@@ -1,4 +1,8 @@
+/* 主题令牌。:root 是深色，[data-theme="light"] 整套覆盖成暖纸浅色。
+   组件只认语义名（含 soft 淡底、scrim 遮罩、canvas 画布色），换主题不改组件。
+   尺寸/字号旋钮不随主题变化，只放在 :root 里。 */
 :root {
+  color-scheme: dark;
   --color-background: #11111b;
   --color-surface: #1d1d2b;
   --color-surface-raised: #26263a;
@@ -9,6 +13,38 @@
   --color-border-strong: #6a6a99;
   --color-focus: #7dd3fc;
   --color-danger: #f87171;
+  --color-success: #7ce38b;
+  /* 压在实心主色/危险色上的文字：浅色主题里主色变深，这里跟着翻成纸白 */
+  --color-on-primary: #11111b;
+  --color-on-danger: #11111b;
+  /* 淡底与遮罩：选中态、提示条、对话框背板、缩略图角标 */
+  --color-primary-soft: rgb(255 204 102 / 12%);
+  --color-primary-faint: rgb(255 204 102 / 8%);
+  --color-primary-hover: rgb(255 204 102 / 22%);
+  --color-danger-soft: rgb(248 113 113 / 10%);
+  --color-success-soft: rgb(124 227 139 / 10%);
+  --color-scrim: rgb(0 0 0 / 70%);
+  --color-scrim-soft: rgb(0 0 0 / 65%);
+  --color-scrim-strong: rgb(0 0 0 / 82%);
+  --color-badge-scrim: rgb(17 17 27 / 80%);
+  --shadow-overlay: 0 6px 24px rgb(0 0 0 / 45%);
+  --glow-primary: 0 0 18px rgb(255 204 102 / 25%);
+  --glow-primary-strong: 0 4px 24px rgb(255 204 102 / 40%);
+  /* 画布色：pixelCanvas.ts 运行时读这些变量，格子纸面两套主题都保持浅色，
+     网格/编号/分块描边按纸面深浅各自取值 */
+  --canvas-backdrop: #11111b;
+  --canvas-cell: #f1f0f8;
+  --canvas-grid: #64647d;
+  --canvas-label: #292941;
+  --canvas-select: #526dca;
+  --canvas-hint: #a25e00;
+  --canvas-error: #d12b42;
+  --canvas-part: #6a6a99;
+  --canvas-next: #ffcc66;
+  --canvas-done: #7ce38b;
+  --canvas-ink: #11111b;
+  /* 上传预览的分块边界线：压在成品色和棋盘格上，两套主题各取反色才看得见 */
+  --canvas-part-line: rgb(255 255 255 / 55%);
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-4: 1rem;
@@ -40,10 +76,12 @@
   --stat-icon-box: 2.75rem;
   /* 桌面侧边栏宽度旋钮；窄屏折成底部标签栏时不受它影响 */
   --sidebar-width: 15rem;
+  /* 全局主题工具条高度旋钮：右上角切换按钮所在的横条 */
+  --topbar-height: 3.25rem;
   /* 图标语义色旋钮：按图标名上色（global.css），想换色改这里 */
   --icon-hint: var(--color-primary);
   --icon-edit: var(--color-focus);
-  --icon-fresh: #7ce38b;
+  --icon-fresh: var(--color-success);
   --icon-view: #b8a9f5;
   --icon-toggle: #6fd3c9;
   --icon-danger: var(--color-danger);
@@ -53,6 +91,55 @@
   --icon-profile: var(--icon-view);
   --icon-levels: var(--icon-toggle);
   --icon-search: var(--color-focus);
+  --icon-theme: var(--color-primary);
   --font-ui: system-ui, "Segoe UI", sans-serif;
   --transition-fast: 120ms ease-out;
+}
+
+/* 浅色：暖纸中性色 + 深琥珀主色。主色当文字用，所以比深色主题深得多；
+   实测对比度（对纸面 #fbf7f0）正文 14.3、辅助 6.3、主色 5.5、危险 5.3，均过 AA。
+   辅助色还要压在选中态的琥珀淡底（#e5d9c5）上，那里实测 4.8，是全套里最紧的一档 */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-background: #ece4d6;
+  --color-surface: #fbf7f0;
+  --color-surface-raised: #f3ece0;
+  --color-text: #2b241d;
+  --color-text-muted: #645a4d;
+  --color-primary: #925600;
+  --color-border: #c6b89e;
+  --color-border-strong: #9c8c6c;
+  --color-focus: #1668c7;
+  --color-danger: #c62828;
+  --color-success: #1f7a41;
+  --color-on-primary: #fffdf8;
+  --color-on-danger: #fffdf8;
+  --color-primary-soft: rgb(146 86 0 / 12%);
+  --color-primary-faint: rgb(146 86 0 / 8%);
+  --color-primary-hover: rgb(146 86 0 / 20%);
+  --color-danger-soft: rgb(198 40 40 / 10%);
+  --color-success-soft: rgb(31 122 65 / 12%);
+  /* 浅色遮罩用暖墨而不是纯黑，压住背景又不把对话框衬得发灰 */
+  --color-scrim: rgb(43 36 29 / 55%);
+  --color-scrim-soft: rgb(43 36 29 / 50%);
+  --color-scrim-strong: rgb(43 36 29 / 72%);
+  --color-badge-scrim: rgb(251 247 240 / 92%);
+  --shadow-overlay: 0 6px 24px rgb(80 64 40 / 22%);
+  --glow-primary: 0 0 18px rgb(146 86 0 / 20%);
+  --glow-primary-strong: 0 4px 24px rgb(146 86 0 / 32%);
+  --canvas-backdrop: #e3dbcb;
+  --canvas-cell: #fdfbf6;
+  --canvas-grid: #8a8172;
+  --canvas-label: #3a332b;
+  --canvas-select: #3b53b8;
+  --canvas-hint: #925600;
+  --canvas-error: #c81e37;
+  --canvas-part: #9a8f7c;
+  --canvas-next: #925600;
+  --canvas-done: #1f7a41;
+  --canvas-ink: #fffdf8;
+  --canvas-part-line: rgb(43 36 29 / 45%);
+  --icon-view: #6b46c8;
+  --icon-toggle: #0f736c;
+  --icon-collections: #c2416f;
 }

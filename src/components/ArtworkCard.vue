@@ -92,7 +92,7 @@ const target = computed<RouteLocationRaw>(
   padding: 0.1rem 0.5rem;
   border: 1px solid var(--color-border);
   border-radius: 999px;
-  background: rgb(17 17 27 / 80%);
+  background: var(--color-badge-scrim);
   color: var(--color-text-muted);
   font-size: var(--font-tag);
 }

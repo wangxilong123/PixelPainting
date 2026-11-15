@@ -35,22 +35,26 @@ h2 {
   margin: 0;
 }
 
-/* 桌面端品牌在侧边栏里，这条顶栏只在窄屏露出 */
-.app-header {
+/* 右上角工具条：全局主题切换的家。在流内占位所以不会盖住页面自己的按钮，
+   sticky 保证长列表滚下去也够得着；品牌只在窄屏露出，桌面端品牌在侧边栏里 */
+.app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
   display: flex;
   align-items: center;
-  gap: var(--space-6);
-  padding: var(--space-4);
+  justify-content: flex-end;
+  gap: var(--space-4);
+  min-height: var(--topbar-height);
+  padding: var(--space-2) var(--space-6);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface);
 }
 
-.app-header h1 {
-  font-size: var(--font-brand);
-}
-
-.app-header-mobile {
+.topbar-brand {
   display: none;
+  margin-right: auto;
+  font-size: var(--font-brand);
 }
 
 :focus-visible {
@@ -92,8 +96,12 @@ h2 {
     flex-direction: column;
   }
 
-  .app-header-mobile {
-    display: flex;
+  .app-topbar {
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .topbar-brand {
+    display: block;
   }
 
   /* 底部标签栏固定在视口下沿，内容区让出它的高度，最后一屏才不会被盖住 */
@@ -179,6 +187,10 @@ h2 {
 
 :where(.pixel-icon[data-name="search"]) {
   color: var(--icon-search);
+}
+
+:where(.pixel-icon[data-name="sun"], .pixel-icon[data-name="moon"]) {
+  color: var(--icon-theme);
 }
 
 /* 减少动态效果：位移和过渡都压掉，状态本身照常切换 */

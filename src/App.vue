@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import AppSidebar from './components/AppSidebar.vue'
+import ThemeToggle from './components/ThemeToggle.vue'
 import { useGameSettings } from './composables/useGameSettings'
 
 const route = useRoute()
@@ -16,8 +17,9 @@ const showSidebar = computed(() => !isPlayPage.value)
   <div class="app-shell" :class="{ 'has-sidebar': showSidebar }">
     <AppSidebar v-if="showSidebar" />
     <div class="app-body" :class="{ 'with-tabbar': showSidebar }">
-      <header v-if="showSidebar" class="app-header app-header-mobile">
-        <h1>像素涂色</h1>
+      <header v-if="showSidebar" class="app-topbar">
+        <h1 class="topbar-brand">像素涂色</h1>
+        <ThemeToggle />
       </header>
       <main class="app-main" :class="{ immersive: immersive && isPlayPage }">
         <RouterView />

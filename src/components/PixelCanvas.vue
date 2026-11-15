@@ -5,6 +5,7 @@ import { createDefaultViewport } from '../canvas/viewport'
 import type { PixelArtwork } from '../models/artwork'
 import type { LevelViewport } from '../models/level'
 import { getInteractiveCellCount, type PartRect } from '../services/levelService'
+import { useTheme } from '../composables/useTheme'
 
 const props = defineProps<{
   level: PixelArtwork
@@ -77,6 +78,10 @@ watch(() => props.overview, (overview) => controller?.setOverview(overview ?? nu
 watch(() => props.viewport, (viewport) => controller?.setViewport(viewport ?? createDefaultViewport()))
 watch(() => props.readPainted(), () => controller?.invalidate())
 
+// 画布颜色来自 CSS 变量，主题换了得主动重画一帧，控制器才会重读
+const { theme } = useTheme()
+watch(theme, () => controller?.invalidate())
+
 defineExpose({
   zoomAt: (x: number, y: number, delta: number) => controller?.zoomAt(x, y, delta),
   panBy: (x: number, y: number) => controller?.panBy(x, y),
@@ -103,7 +108,7 @@ defineExpose({
   min-height: clamp(15rem, 58vh, 34rem);
   border: 0;
   padding: 0;
-  background: var(--color-surface);
+  background: var(--canvas-backdrop);
   touch-action: none;
 }
 </style>

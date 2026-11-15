@@ -214,7 +214,7 @@ async function undoDelete(): Promise<void> {
   padding: 0.6rem 0.9rem;
   border: 1px solid var(--color-danger);
   border-radius: var(--radius-sm);
-  background: rgb(248 113 113 / 10%);
+  background: var(--color-danger-soft);
   color: var(--color-danger);
 }
 
@@ -247,7 +247,7 @@ async function undoDelete(): Promise<void> {
   border: 2px solid var(--color-primary);
   border-radius: var(--radius-lg);
   background: var(--color-primary);
-  color: var(--color-background);
+  color: var(--color-on-primary);
   font: inherit;
   font-size: var(--action-font);
   font-weight: 600;
@@ -300,7 +300,7 @@ async function undoDelete(): Promise<void> {
   padding: 0.35rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: rgb(17 17 27 / 80%);
+  background: var(--color-badge-scrim);
   color: var(--color-text-muted);
   font: inherit;
   font-size: var(--font-tag);
@@ -322,7 +322,7 @@ async function undoDelete(): Promise<void> {
 .studio-delete.confirm {
   border-color: var(--color-danger);
   background: var(--color-danger);
-  color: var(--color-background);
+  color: var(--color-on-danger);
   font-weight: 600;
 }
 
@@ -374,7 +374,7 @@ async function undoDelete(): Promise<void> {
   border-radius: var(--radius-lg);
   background: var(--color-surface-raised);
   color: var(--color-text);
-  box-shadow: 0 6px 24px rgb(0 0 0 / 45%);
+  box-shadow: var(--shadow-overlay);
 }
 
 .studio-undo button {
@@ -392,7 +392,7 @@ async function undoDelete(): Promise<void> {
 }
 
 .studio-undo button:hover {
-  background: rgb(255 204 102 / 12%);
+  background: var(--color-primary-soft);
 }
 
 .studio-undo .pixel-icon {

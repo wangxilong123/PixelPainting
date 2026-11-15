@@ -8,6 +8,8 @@ import { newUserArtworkId, saveUserArtwork } from '../services/artworkStorage'
 import { imageToLevel, type PixelSource } from '../services/imageToLevel'
 import { blobToPixelSource } from '../services/imageSource'
 import { getInteractiveCellCount, getPartRects } from '../services/levelService'
+import { readThemeColor } from '../canvas/canvasTheme'
+import { useTheme } from '../composables/useTheme'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: []; saved: [artwork: PixelArtwork] }>()
@@ -124,7 +126,7 @@ function drawPreview(level: Level): void {
   }
   const rects = getPartRects(level)
   if (rects.length > 1) {
-    ctx.strokeStyle = 'rgb(255 255 255 / 55%)'
+    ctx.strokeStyle = readThemeColor('--canvas-part-line', 'rgb(255 255 255 / 55%)')
     ctx.lineWidth = 1
     for (const rect of rects) {
       ctx.strokeRect(rect.x * cell + 0.5, rect.y * cell + 0.5, rect.width * cell - 1, rect.height * cell - 1)
@@ -135,6 +137,12 @@ function drawPreview(level: Level): void {
 watch(preview, async (level) => {
   await nextTick()
   if (level) drawPreview(level)
+})
+
+// 分块边界线压在成品色和棋盘格上，换主题得重画一次才看得见
+const { theme } = useTheme()
+watch(theme, () => {
+  if (preview.value) drawPreview(preview.value)
 })
 
 // 拖动滑块时合并连续触发，停手 120ms 后再重算，避免每像素都跑一遍量化
@@ -418,7 +426,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
-  background: rgb(0 0 0 / 70%);
+  background: var(--color-scrim);
   overflow-y: auto;
 }
 
@@ -494,7 +502,7 @@ onBeforeUnmount(() => {
 .dropzone:hover,
 .dropzone.dragover {
   border-color: var(--color-primary);
-  background: rgb(255 204 102 / 8%);
+  background: var(--color-primary-faint);
 }
 
 .dropzone .pixel-icon {
@@ -566,7 +574,7 @@ onBeforeUnmount(() => {
   padding: 0.4rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: rgb(17 17 27 / 80%);
+  background: var(--color-badge-scrim);
   color: var(--color-text-muted);
   cursor: pointer;
   transition: color var(--transition-fast), border-color var(--transition-fast),
@@ -630,7 +638,7 @@ onBeforeUnmount(() => {
 /* 下载是这次的主行动，用主色描边+淡底与「换一张」区分开 */
 .download-image {
   border-color: var(--color-primary);
-  background: rgb(255 204 102 / 12%);
+  background: var(--color-primary-soft);
   color: var(--color-primary);
   font-weight: 600;
 }
@@ -640,7 +648,7 @@ onBeforeUnmount(() => {
 }
 
 .download-image:hover:not(:disabled) {
-  background: rgb(255 204 102 / 22%);
+  background: var(--color-primary-hover);
 }
 
 .download-image:disabled {
@@ -739,7 +747,7 @@ onBeforeUnmount(() => {
   padding: 0.6rem 0.9rem;
   border: 1px solid var(--color-danger);
   border-radius: var(--radius-sm);
-  background: rgb(248 113 113 / 10%);
+  background: var(--color-danger-soft);
   color: var(--color-danger);
 }
 
@@ -788,7 +796,7 @@ onBeforeUnmount(() => {
 .upload-actions button.primary {
   border-color: var(--color-primary);
   background: var(--color-primary);
-  color: var(--color-background);
+  color: var(--color-on-primary);
   font-weight: 600;
 }
 
@@ -821,7 +829,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
-  background: rgb(0 0 0 / 82%);
+  background: var(--color-scrim-strong);
   overflow-y: auto;
 }
 
@@ -894,6 +902,11 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  /* 说明文字直接压在遮罩上，浅色主题的暖墨遮罩会把深色文字吃掉，所以垫一层纸 */
+  background: var(--color-badge-scrim);
   text-align: center;
 }
 

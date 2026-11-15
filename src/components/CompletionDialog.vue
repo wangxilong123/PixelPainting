@@ -69,7 +69,7 @@ const time = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgb(0 0 0 / 65%);
+  background: var(--color-scrim-soft);
   padding: var(--space-4);
 }
 
@@ -143,7 +143,7 @@ img.dialog-preview {
   height: var(--icon-size);
 }
 
-/* 主按钮是浅底深字，图标必须跟着反色，语义色会糊在亮底上 */
+/* 主按钮是实心底，图标必须跟着文字走，语义色会糊在底上 */
 .dialog-actions button.primary .pixel-icon {
   color: inherit;
 }
@@ -151,7 +151,7 @@ img.dialog-preview {
 .dialog-actions button.primary {
   border-color: var(--color-primary);
   background: var(--color-primary);
-  color: var(--color-background);
+  color: var(--color-on-primary);
   font-weight: 600;
 }
 </style>

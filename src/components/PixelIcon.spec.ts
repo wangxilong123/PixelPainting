@@ -95,13 +95,14 @@ describe('normalizeIconSvg', () => {
 })
 
 describe('dropped-in icon files', () => {
-  // 26 个键都有正式文件：24 个所有者上传（docs/assets/icons 存原件，grid_on/grid_off 与六个板块图标改名成图标键）
-  // + reset-view/clock-off 两个自绘（1024 网格、单 path、fill 走归一化）
+  // 29 个键都有正式文件：24 个所有者上传（docs/assets/icons 存原件，grid_on/grid_off 与六个板块图标改名成图标键）
+  // + reset-view/clock-off/download/sun/moon 五个自绘（1024 网格、fill 走归一化）
   const fileBacked: IconName[] = [
     'arrow-left', 'arrow-right', 'check', 'clock', 'clock-off', 'close', 'compress', 'expand',
     'grid-off', 'grid-on', 'hint', 'lock', 'redo', 'replay', 'reset-view', 'settings',
     'sound-off', 'sound-on', 'undo', 'warn',
     'materials', 'collections', 'studio', 'profile', 'levels', 'search',
+    'download', 'sun', 'moon',
   ]
   const boardIcons: IconName[] = ['materials', 'collections', 'studio', 'profile', 'levels', 'search']
 

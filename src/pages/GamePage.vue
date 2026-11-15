@@ -7,6 +7,7 @@ import CompletionDialog from '../components/CompletionDialog.vue'
 import GameSettings from '../components/GameSettings.vue'
 import PixelCanvas from '../components/PixelCanvas.vue'
 import PixelIcon from '../components/PixelIcon.vue'
+import ThemeToggle from '../components/ThemeToggle.vue'
 import { useGameSettings } from '../composables/useGameSettings'
 import { useLevelProgress } from '../composables/useLevelProgress'
 import { playPaintSound } from '../services/audioService'
@@ -444,6 +445,7 @@ function backToList(): void {
         </button>
         <GameSettings :open="settingsOpen" @close="settingsOpen = false" />
       </div>
+      <ThemeToggle />
       <div
         class="game-progress"
         role="progressbar"
@@ -777,10 +779,10 @@ function backToList(): void {
   padding: 0.7rem 2.4rem;
   border-color: var(--color-primary);
   background: var(--color-primary);
-  color: #11111b;
+  color: var(--color-on-primary);
   font-size: 1.2rem;
   font-weight: 700;
-  box-shadow: 0 0 18px rgba(255, 204, 102, 0.25);
+  box-shadow: var(--glow-primary);
 }
 
 .part-overview-actions .part-start .pixel-icon {
@@ -791,7 +793,7 @@ function backToList(): void {
   border-color: var(--color-primary);
   background: var(--color-primary);
   transform: translateY(-2px);
-  box-shadow: 0 4px 24px rgba(255, 204, 102, 0.4);
+  box-shadow: var(--glow-primary-strong);
 }
 
 .part-overview-tip {

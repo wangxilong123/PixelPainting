@@ -203,7 +203,7 @@ function entryAction(entry: PortfolioEntry): string {
   padding: 0.6rem 0.9rem;
   border: 1px solid var(--color-danger);
   border-radius: var(--radius-sm);
-  background: rgb(248 113 113 / 10%);
+  background: var(--color-danger-soft);
   color: var(--color-danger);
 }
 
@@ -373,7 +373,7 @@ function entryAction(entry: PortfolioEntry): string {
   border: 2px solid var(--color-primary);
   border-radius: var(--radius-lg);
   background: var(--color-primary);
-  color: var(--color-background);
+  color: var(--color-on-primary);
   font-size: var(--action-font);
   font-weight: 600;
   text-decoration: none;

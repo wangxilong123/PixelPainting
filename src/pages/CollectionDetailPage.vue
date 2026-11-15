@@ -318,7 +318,7 @@ function undoDelete(): void {
 .detail-delete.confirm {
   border-color: var(--color-danger);
   background: var(--color-danger);
-  color: var(--color-background);
+  color: var(--color-on-danger);
   font-weight: 600;
 }
 
@@ -343,7 +343,7 @@ function undoDelete(): void {
   border-radius: var(--radius-lg);
   background: var(--color-surface-raised);
   color: var(--color-text);
-  box-shadow: 0 6px 24px rgb(0 0 0 / 45%);
+  box-shadow: var(--shadow-overlay);
 }
 
 .detail-undo button {
@@ -361,7 +361,7 @@ function undoDelete(): void {
 }
 
 .detail-undo button:hover {
-  background: rgb(255 204 102 / 12%);
+  background: var(--color-primary-soft);
 }
 
 .detail-undo .pixel-icon {

@@ -68,7 +68,7 @@ function setup(
     setTransform: vi.fn(), translate: vi.fn(), scale: vi.fn(), fillRect: vi.fn(),
     strokeRect: vi.fn(), fillText: vi.fn(), fillStyle: '', font: '',
     beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(),
-    stroke: vi.fn(), strokeStyle: '', lineWidth: 0, lineCap: '', lineJoin: '',
+    stroke: vi.fn(), strokeStyle: '', lineWidth: 0, lineCap: '', lineJoin: '', globalAlpha: 1,
   }
   const fills: string[] = []
   const fonts: string[] = []
@@ -120,6 +120,7 @@ afterEach(() => {
   vi.useRealTimers()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  delete document.documentElement.dataset.theme
 })
 
 function pointer(canvas: HTMLCanvasElement, type: string, x: number, y: number, options = {}) {
@@ -609,6 +610,86 @@ describe('pixel canvas overview', () => {
     expect(view.context.translate).toHaveBeenLastCalledWith(54, 4)
     // 每次切换只排一帧，没有补间续帧
     expect(view.request).toHaveBeenCalledTimes(3)
+    view.controller.destroy()
+  })
+})
+
+describe('pixel canvas theme', () => {
+  const lightTokens: Record<string, string> = {
+    '--canvas-backdrop': '#e3dbcb',
+    '--canvas-cell': '#fdfbf6',
+    '--canvas-grid': '#8a8172',
+    '--canvas-label': '#3a332b',
+    '--canvas-next': '#925600',
+    '--canvas-done': '#1f7a41',
+    '--canvas-ink': '#fffdf8',
+  }
+
+  function stubTokens(tokens: Record<string, string>): void {
+    vi.stubGlobal('getComputedStyle', vi.fn(() => ({
+      getPropertyValue: (name: string) => tokens[name] ?? '',
+    })))
+  }
+
+  it('keeps the dark palette when the variables cannot be read', () => {
+    const view = setup()
+    view.draw()
+    expect(view.fills[0]).toBe('#11111b')
+    expect(view.fills).toContain('#e1e4ee')
+    expect(view.context.strokeStyle).toBe('#64647d')
+    view.controller.destroy()
+  })
+
+  it('rereads the palette and retints empty cells once the theme attribute changes', () => {
+    document.documentElement.dataset.theme = 'dark'
+    const view = setup()
+    view.draw()
+    expect(view.fills[0]).toBe('#11111b')
+
+    stubTokens(lightTokens)
+    document.documentElement.dataset.theme = 'light'
+    view.fills.length = 0
+    view.controller.invalidate()
+    view.draw()
+
+    expect(view.fills[0]).toBe('#e3dbcb')
+    // 淡色按新的纸面色 #fdfbf6 重算，不再沿用深色主题的 #e1e4ee
+    expect(view.fills).toContain('#ebeded')
+    expect(view.fills).not.toContain('#e1e4ee')
+    expect(view.context.strokeStyle).toBe('#8a8172')
+    expect(view.context.fillStyle).toBe('#3a332b')
+    view.controller.destroy()
+  })
+
+  it('does not reread the variables while the theme stays put', () => {
+    stubTokens(lightTokens)
+    document.documentElement.dataset.theme = 'light'
+    const view = setup()
+    view.draw()
+    const read = globalThis.getComputedStyle as unknown as ReturnType<typeof vi.fn>
+    const rootReads = () => read.mock.calls.filter(([node]) => node === document.documentElement).length
+    expect(rootReads()).toBe(1)
+    view.controller.invalidate()
+    view.draw()
+    expect(rootReads()).toBe(1)
+    view.controller.destroy()
+  })
+
+  it('paints the overview badges with the light palette and restores alpha', () => {
+    stubTokens(lightTokens)
+    document.documentElement.dataset.theme = 'light'
+    const view = setup(Array(16).fill(0), 'painted', true, chunked)
+    const strokes: string[] = []
+    view.context.stroke.mockImplementation(() => strokes.push(view.context.strokeStyle))
+    view.controller.setOverview({
+      parts: getPartRects(chunked), done: [true, false, false, false], next: 1,
+    })
+    view.draw()
+    expect(view.fills).toContain('#1f7a41')
+    expect(view.fills).toContain('#925600')
+    // 完成块的勾用浅色主题的纸白墨色，光晕和完成边描完都把 alpha 还原
+    expect(strokes).toContain('#fffdf8')
+    expect(view.context.globalAlpha).toBe(1)
     view.controller.destroy()
   })
 })

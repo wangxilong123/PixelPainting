@@ -301,7 +301,7 @@ async function download(): Promise<void> {
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
-  background: rgb(0 0 0 / 70%);
+  background: var(--color-scrim);
   overflow-y: auto;
 }
 
@@ -506,7 +506,7 @@ async function download(): Promise<void> {
 
 .segment.active {
   background: var(--color-primary);
-  color: var(--color-background);
+  color: var(--color-on-primary);
   font-weight: 600;
 }
 
@@ -587,14 +587,14 @@ async function download(): Promise<void> {
 
 .export-error {
   border: 1px solid var(--color-danger);
-  background: rgb(248 113 113 / 10%);
+  background: var(--color-danger-soft);
   color: var(--color-danger);
 }
 
 .export-notice {
-  border: 1px solid var(--icon-fresh);
-  background: rgb(124 227 139 / 10%);
-  color: var(--icon-fresh);
+  border: 1px solid var(--color-success);
+  background: var(--color-success-soft);
+  color: var(--color-success);
 }
 
 .export-error .pixel-icon,
@@ -644,7 +644,7 @@ async function download(): Promise<void> {
 .export-actions button.primary {
   border-color: var(--color-primary);
   background: var(--color-primary);
-  color: var(--color-background);
+  color: var(--color-on-primary);
   font-weight: 600;
 }
 

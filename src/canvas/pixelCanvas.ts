@@ -2,6 +2,7 @@ import type { PixelArtwork } from '../models/artwork'
 import type { LevelViewport } from '../models/level'
 import type { PartRect } from '../services/levelService'
 import { cellsAlongSegment, screenToCell, screenToWorld, type Cell, type Point } from '../utils/coordinates'
+import { hexChannels, readCanvasTheme } from './canvasTheme'
 import {
   createDefaultViewport,
   normalizeViewport,
@@ -56,9 +57,9 @@ const singleDigitFont = 12
 const doubleDigitFont = 9
 const minLabelPixels = 6
 const transitionDuration = 480
-const emptyFill = '#f1f0f8'
-const emptyChannels = [241, 240, 248]
 const tintStrength = 0.22
+const nextGlowAlpha = 0.28
+const doneLineAlpha = 0.65
 type Gesture = 'pending' | 'paint' | 'pan' | 'pinch' | 'blocked'
 
 type ViewportAnimation = {
@@ -77,16 +78,20 @@ function labelFont(target: number): number {
 }
 
 // 未涂色的格子透出一点目标色，玩家不看编号也能大致分辨区域
-function tintTowardsEmpty(hex: string): string {
+function tintTowardsEmpty(hex: string, base: readonly number[], fallback: string): string {
   const match = /^#([0-9a-f]{6})$/i.exec(hex)
-  if (!match) return emptyFill
+  if (!match) return fallback
   const value = Number.parseInt(match[1], 16)
   const channels = [(value >> 16) & 255, (value >> 8) & 255, value & 255]
   const mixed = channels.map((channel, index) => {
-    const base = emptyChannels[index]
-    return Math.round(base + (channel - base) * tintStrength).toString(16).padStart(2, '0')
+    const origin = base[index]
+    return Math.round(origin + (channel - origin) * tintStrength).toString(16).padStart(2, '0')
   })
   return `#${mixed.join('')}`
+}
+
+function themeKey(): string {
+  return typeof document === 'undefined' ? '' : document.documentElement.dataset.theme ?? ''
 }
 
 function isDefaultViewport(viewport: LevelViewport): boolean {
@@ -105,7 +110,9 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
   const { canvas, level, readPainted, commitPaint, onPaint, onViewportChange, autoFit = false } = options
   const context = canvas.getContext('2d')
   const palette = new Map(level.palette.map((color) => [color.id, color.hex]))
-  const emptyFills = new Map(level.palette.map((color) => [color.id, tintTowardsEmpty(color.hex)]))
+  let theme = readCanvasTheme()
+  let appliedThemeKey = themeKey()
+  let emptyFills = buildEmptyFills()
   let viewport = createDefaultViewport()
   let part: PartRect | null = null
   let overview: PartOverview | null = null
@@ -129,6 +136,20 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
   // 分块只是绘制和命中的裁剪范围，格子坐标和 index 仍然按整图算
   function activePart(): PartRect {
     return part ?? { index: 0, x: 0, y: 0, width: level.width, height: level.height }
+  }
+
+  function buildEmptyFills(): Map<number, string> {
+    const base = hexChannels(theme.cell)
+    return new Map(level.palette.map((color) => [color.id, tintTowardsEmpty(color.hex, base, theme.cell)]))
+  }
+
+  // 主题切换只改 <html data-theme>，这里按它判断要不要重读变量，省掉每帧取计算样式
+  function syncTheme(): void {
+    const key = themeKey()
+    if (key === appliedThemeKey) return
+    appliedThemeKey = key
+    theme = readCanvasTheme()
+    emptyFills = buildEmptyFills()
   }
 
   function scaleBounds(): ViewportBounds | undefined {
@@ -202,6 +223,7 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
     if (!context) return
     const { width, height } = canvas.getBoundingClientRect()
     if (width <= 0 || height <= 0) return
+    syncTheme()
     const dpr = globalThis.devicePixelRatio || 1
     const backingWidth = Math.max(1, Math.round(width * dpr))
     const backingHeight = Math.max(1, Math.round(height * dpr))
@@ -210,7 +232,7 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
 
     const view = activeViewport()
     context.setTransform(backingWidth / width, 0, 0, backingHeight / height, 0, 0)
-    context.fillStyle = '#11111b'
+    context.fillStyle = theme.backdrop
     context.fillRect(0, 0, width, height)
     context.translate(view.offsetX, view.offsetY)
     context.scale(view.scale, view.scale)
@@ -236,28 +258,28 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
         const y = row * cellSize
         const filled = painted[index] === target
         context.fillStyle = filled
-          ? palette.get(target) ?? emptyFill
-          : emptyFills.get(target) ?? emptyFill
+          ? palette.get(target) ?? theme.cell
+          : emptyFills.get(target) ?? theme.cell
         context.fillRect(x, y, cellSize, cellSize)
         // 预览是成品视角：不描网格、不写编号，结构交给分块覆盖层
         if (overview) continue
         // 涂满的格子不再描边，成品是一整块干净的画；网格线只留在没涂的格子上
         if (filled) continue
         context.lineWidth = 1 / view.scale
-        context.strokeStyle = '#64647d'
+        context.strokeStyle = theme.grid
         context.strokeRect(x, y, cellSize, cellSize)
 
         // 编号按屏幕恒定字号：缩小时不再糊到隐藏，放大时也不超过格子留边
         const fontPx = labelFont(target)
         const screenFont = Math.min(Math.max(fontPx * view.scale, fontPx), cellSize * view.scale - 4)
         if (screenFont >= minLabelPixels) {
-          context.fillStyle = '#292941'
+          context.fillStyle = theme.label
           context.font = `${screenFont / view.scale}px system-ui, sans-serif`
           context.fillText(String(target), x + cellSize / 2, y + cellSize / 2, cellSize - 4)
         }
-        if (target === selectedColor) highlight(x, y, '#526dca', 1, view.scale)
-        if (index === hintIndex) highlight(x, y, '#a25e00', 2, view.scale)
-        if (index === errorIndex) highlight(x, y, '#d12b42', 2, view.scale)
+        if (target === selectedColor) highlight(x, y, theme.select, 1, view.scale)
+        if (index === hintIndex) highlight(x, y, theme.hint, 2, view.scale)
+        if (index === errorIndex) highlight(x, y, theme.error, 2, view.scale)
       }
     }
 
@@ -277,13 +299,16 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
       const isDone = overview.done[rect.index] ?? false
 
       if (isNext) {
-        context.strokeStyle = 'rgba(255, 204, 102, 0.28)'
+        context.globalAlpha = nextGlowAlpha
+        context.strokeStyle = theme.next
         context.lineWidth = 8 / scale
         context.strokeRect(x, y, width, height)
       }
-      context.strokeStyle = isNext ? '#ffcc66' : isDone ? 'rgba(124, 227, 139, 0.65)' : '#6a6a99'
+      context.globalAlpha = isDone && !isNext ? doneLineAlpha : 1
+      context.strokeStyle = isNext ? theme.next : isDone ? theme.done : theme.part
       context.lineWidth = (isNext ? 2.5 : 1.5) / scale
       context.strokeRect(x, y, width, height)
+      context.globalAlpha = 1
 
       if (isDone || isNext) drawPartBadge(x + width, y, rect.index + 1, isDone, scale)
     }
@@ -296,10 +321,10 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
     const cy = top + radius + 6 / scale
     context.beginPath()
     context.arc(cx, cy, radius, 0, Math.PI * 2)
-    context.fillStyle = done ? '#7ce38b' : '#ffcc66'
+    context.fillStyle = done ? theme.done : theme.next
     context.fill()
     if (done) {
-      context.strokeStyle = '#11111b'
+      context.strokeStyle = theme.ink
       context.lineWidth = 2 / scale
       context.lineCap = 'round'
       context.lineJoin = 'round'
@@ -309,7 +334,7 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
       context.lineTo(cx + 5 / scale, cy - 4 / scale)
       context.stroke()
     } else {
-      context.fillStyle = '#11111b'
+      context.fillStyle = theme.ink
       context.font = `600 ${11 / scale}px system-ui, sans-serif`
       context.fillText(String(label), cx, cy + 0.5 / scale, radius * 2 - 4 / scale)
     }

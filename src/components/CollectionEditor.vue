@@ -292,7 +292,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
-  background: rgb(0 0 0 / 70%);
+  background: var(--color-scrim);
   overflow-y: auto;
 }
 
@@ -435,7 +435,7 @@ onBeforeUnmount(() => {
   height: 1.25rem;
   border-radius: 999px;
   background: var(--color-primary);
-  color: var(--color-background);
+  color: var(--color-on-primary);
   font-size: var(--font-tag);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -552,7 +552,7 @@ onBeforeUnmount(() => {
 
 .picker-chip.active {
   border-color: var(--color-primary);
-  background: rgb(255 204 102 / 12%);
+  background: var(--color-primary-soft);
   color: var(--color-primary);
   font-weight: 600;
 }
@@ -596,7 +596,7 @@ onBeforeUnmount(() => {
 
 .picker-tile.selected {
   border-color: var(--color-primary);
-  background: rgb(255 204 102 / 8%);
+  background: var(--color-primary-faint);
 }
 
 .tile-thumb {
@@ -633,7 +633,7 @@ onBeforeUnmount(() => {
   padding: 0 0.25rem;
   border-radius: 999px;
   background: var(--color-primary);
-  color: var(--color-background);
+  color: var(--color-on-primary);
   font-size: var(--font-tag);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -665,7 +665,7 @@ onBeforeUnmount(() => {
   padding: 0.6rem 0.9rem;
   border: 1px solid var(--color-danger);
   border-radius: var(--radius-sm);
-  background: rgb(248 113 113 / 10%);
+  background: var(--color-danger-soft);
   color: var(--color-danger);
   font-size: var(--font-meta);
 }
@@ -716,7 +716,7 @@ onBeforeUnmount(() => {
 .editor-actions button.primary {
   border-color: var(--color-primary);
   background: var(--color-primary);
-  color: var(--color-background);
+  color: var(--color-on-primary);
   font-weight: 600;
 }
 

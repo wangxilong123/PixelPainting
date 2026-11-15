@@ -13,12 +13,12 @@ npm run build      # vue-tsc 类型检查 + vite build
 
 ## 页面
 
-应用外壳是左侧固定宽度导航（素材、合集、制作像素图、个人中心、关卡模式），640px 以下折成底部标签栏；涂色页不占导航，把整屏让给画布。
+应用外壳是左侧固定宽度导航（素材、合集、制作像素图、个人中心、关卡模式）加一条右上角常驻顶栏（全局主题切换），640px 以下导航折成底部标签栏、顶栏左侧补出品牌名；涂色页不占导航，把整屏让给画布。
 
 - `/` 素材库。搜索名称或标签，卡片每行 4 幅（1024px 以下 2 幅、560px 以下 1 幅），每页 12 幅，点卡片进入自由涂色。
 - `/paint/:artworkId` 自由涂色。和关卡共用一个游戏页，但没有解锁顺序，顶栏可以关计时；进度按素材 ID 单独记录，不影响关卡解锁。
 - `/levels` 横向轮播选关。滚轮、左右方向键或轮播下方的 ‹ › 按钮切换关卡，回车进入；按钮中间是当前位置（第 n / N 关），卡片居中时顶部统计条跟着更新。滚轮横向到头后会把纵向滚动还给页面，不会把页面困在轮播里。分类 chips 只筛选轮播内容，能不能进按全局顺序判断：前置关卡全部通关才解锁，已通关的关卡即使前置进度被清零也照样能重玩（`isLevelEnterable` = 已解锁或已通关），这类卡片显示「已完成」而不是锁标。
-- `/game/:levelId` 涂色。左键填色，右键拖拽平移，滚轮缩放，某个颜色涂完后自动切到调色板里的下一个颜色。顶栏「设置」抽屉里可以开关音效、调色板剩余格数和沉浸模式。
+- `/game/:levelId` 涂色。左键填色，右键拖拽平移，滚轮缩放，某个颜色涂完后自动切到调色板里的下一个颜色。顶栏「设置」抽屉里可以开关音效、调色板剩余格数和沉浸模式，末尾是主题切换按钮。
 - `/collections` 合集列表。按主题策展的素材分组，每个合集占一整行（左封面、右名称/标签/成员预览），搜索名称或标签实时筛选，点行进入详情。顶部「新建合集」可自定义合集：从预设素材和「我的作品」里点选成员（点选顺序即展示顺序，首幅作封面），支持搜索、按来源筛选、前移/后移/移除/清空调序；用户合集排在预设前面、按创建时间倒序，封面右上角带「我的」徽标，卡片右上角两步删除、删后可撤销。预设合集只读，不显示编辑/删除。
 - `/collections/:collectionId` 合集详情。复用素材卡片网格、搜索与分页，按合集内 `artworkIds` 顺序展示成员，可在合集内再搜索；用户作品成员用其缩略图、预设成员用 `PixelPreview`。用户合集标题旁带「我的」徽标，头部有编辑（原地改名/调成员，保留 ID 与创建时间）和两步删除（删后页面切到「合集已删除」并给撤销条）；未知 ID 显示「未找到这个合集」并给返回链接。
 - `/studio` 制作像素图。上传一张图片，浏览器本地把它降采样、量化成可涂色的像素作品，原图与生成数据存进 IndexedDB；顶部是已制作数量与「添加图片」按钮，下方复用素材网格、搜索与分页，点卡片进入自由涂色，卡片右上角下载按钮把作品导出为 PNG/JPG/WebP（倍率/背景/质量可调，见「制作像素图」），旁边两步删除、删后可撤销。
@@ -27,6 +27,16 @@ npm run build      # vue-tsc 类型检查 + vite build
 分块关卡（`parts` 是 2×2 或 3×3）走引导式流程：进关先给整图预览——整幅画平铺上色（涂过的格子显示成品色），叠分块边界，完成的块打勾、下一块描亮边标块号，预览只看不涂，滚轮留给页面滚动。点「开始涂色」（有进度则是「继续涂色」）从第一个未完成的块开始，整图与分块之间用 480ms 缓动缩放过渡（系统开了减弱动态效果就直接切换）。一次只涂一块：块外的格子既不绘制也不响应点击，调色板只摆当前块还有剩余格子的颜色（数量为 0 的直接不显示，涂完一个颜色它的色块就实时撤掉），剩余格数和自动换色只数当前块，提示也只在当前块里找选中色的未涂格；非分块关卡保持整幅调色板、涂完的颜色禁用不隐藏。涂满一块自动回到整图预览，点「下一块」进入下一个未完成的块；最后一块涂满时结算弹窗盖在预览上。格子编号和 `cells` 下标始终按整图算，换块时视口回到该块的适配位置，玩家的缩放平移不跨块保留；解锁、完成判定和提示次数都按整图算。
 
 进度和设置都存在 localStorage，键名分别是 `pixel-painting:v2:progress` 和 `pixel-painting:v1:settings`；自定义合集存 `pixel-painting:v1:collections`（纯元数据数组，不含图像 Blob，所以走 localStorage 而非 IndexedDB）。进度存档是 `{ currentId, records }`，每条记录带 `source`（`level` / `artwork` / `user`）区分玩法；旧 v1 存档只在 v2 缺席时读一次并迁移写回 v2（丢弃已废弃的 `stars`，重命名关卡的旧键搬到新键），v1 原文不动。沉浸状态不写入存档，刷新后一定回到普通模式。存档里的 `partIndex` 记录玩家当前在涂的块，提示按它限定范围；重进关卡总是先回整图预览，从第一个未完成的块继续。重转关卡改了分块数导致块号越界时只丢这个字段，已涂进度照旧读出来。用户制作的像素图（原图 + 生成数据）另存 IndexedDB（库名 `pixel-painting-studio`），不占 localStorage 配额；存储不可用时降级为仅本次会话可用，并在制作页与个人中心顶部给出提示。
+
+## 主题
+
+深色和浅色两套主题，右上角随时切换，首访跟随系统。
+
+- 令牌全在 `src/styles/tokens.css`：`:root` 是深色（冷夜蓝底 + 琥珀主色），`:root[data-theme="light"]` 只覆盖颜色，浅色是暖纸中性色 + 深琥珀主色（主色要当文字用，所以比深色的 `#ffcc66` 深到 `#925600`）。尺寸、间距、字号、圆角两套共用，切主题不动布局。组件只认语义名，新补的 `--color-on-primary`/`--color-on-danger`、`--color-primary-soft`/`-faint`/`-hover`、`--color-danger-soft`/`--color-success-soft`、`--color-scrim`/`-soft`/`-strong`、`--color-badge-scrim`、`--shadow-overlay`、`--glow-primary`(`-strong`) 把原先写死在组件里的 rgba 收了回来，换配色只改这一个文件。滚动条也跟着走（轨道背景色、滑块边框色、悬停加深）。
+- 切换按钮 `ThemeToggle.vue` 在两处：外壳新增的常驻顶栏 `.app-topbar`（`position: sticky`，高度旋钮 `--topbar-height` 默认 3.25rem，640px 以下左侧补出品牌名，因为那时侧栏折成了底部标签栏）右端，以及涂色页自己的顶栏末尾。按钮显示**当前**状态（深色/浅色 + 月亮/太阳图标），`aria-label` 与 `title` 写**相反**动作（「切换到浅色主题」）。
+- 状态在 `src/composables/useTheme.ts`，模块级共享一个 ref，页面上多颗按钮同步。首次访问读 `prefers-color-scheme`，不写盘；手动切过才存 localStorage `pixel-painting:v1:theme`（纯文本 `dark`/`light`，不是 JSON），存了别的值退回系统。`index.html` 头部内联脚本在首屏绘制前按同一套规则定 `data-theme`，浅色偏好的所有者不会看到一帧深色底——键名和判定规则两边必须一致。`matchMedia` 不存在（Node/jsdom）时按深色兜底。
+- 画布不吃 CSS，颜色由 `src/canvas/canvasTheme.ts` 一次 `getComputedStyle` 读齐 12 个 `--canvas-*`，读不到就退回深色原值（jsdom、样式没加载时照样画得出来）。控制器只在 `documentElement.dataset.theme` 变了才重读，不每帧算样式；`PixelCanvas.vue` 与上传预览各 `watch(theme)` 重绘，分块边界线走 `readThemeColor('--canvas-part-line', …)`。空格淡色、提示/错涂闪烁、整图预览的完成勾与下一块亮边都改用透明度混色，两套主题下都不糊。
+- 浅色实测对比度（对纸面 `#fbf7f0`）：正文 14.3:1、辅助文字 6.3:1、主色 5.5:1、危险 5.3:1；最紧的一档是选中态琥珀淡底上的辅助文字 4.8:1，全部过 WCAG AA 的 4.5。灯箱说明原本直接压在暖墨遮罩上会被吃掉，垫了一层 `--color-badge-scrim` 纸片。
 
 ## 关卡数据结构
 
@@ -111,7 +121,7 @@ node scripts/convert-level.mjs 橘猫.png --title 橘猫 --category animal --dif
 
 ## 图标
 
-图标是投放式的：把 SVG 丢进 `src/assets/icons/<图标键>.svg` 就会被 `import.meta.glob` 收进来，文件名必须等于 `src/components/icons.ts` 里的键（`materials`、`collections`、`studio`、`profile`、`levels`、`search`、`check`、`lock` 等），中文名或别的名字匹配不上、会被静默忽略。目前 27 个键都有正式文件：24 个是所有者上传（原件按上传者给的名字留在 `docs/assets/icons/`，不入库），`reset-view`（十字准星）、`clock-off`（斜杠时钟）与 `download`（下箭头 + 托盘）是自绘补位，同样走 1024 网格。
+图标是投放式的：把 SVG 丢进 `src/assets/icons/<图标键>.svg` 就会被 `import.meta.glob` 收进来，文件名必须等于 `src/components/icons.ts` 里的键（`materials`、`collections`、`studio`、`profile`、`levels`、`search`、`check`、`lock` 等），中文名或别的名字匹配不上、会被静默忽略。目前 29 个键都有正式文件：24 个是所有者上传（原件按上传者给的名字留在 `docs/assets/icons/`，不入库），`reset-view`（十字准星）、`clock-off`（斜杠时钟）、`download`（下箭头 + 托盘）、`sun`（实心日轮 + 八道光芒）与 `moon`（月牙）是自绘补位，同样走 1024 网格。
 
 `src/components/iconSvg.ts` 运行时归一化：取文件自己的 `viewBox`（上传件是 `0 0 1024 1024`），把所有 `fill`/`stroke` 压成 `currentColor`（`none` 保留），剥掉 `script`、`style`、`foreignObject`、动画节点和 `on*` 事件属性，然后内联进 `PixelIcon`。没有对应文件的键回退到 `icons.ts` 的 16×16 像素路径并带 `crispEdges`；有文件的走平滑矢量、不加 `crispEdges`。组件和调用点只认键名，换图不用改代码。
 
@@ -121,12 +131,13 @@ node scripts/convert-level.mjs 橘猫.png --title 橘猫 --category animal --dif
 
 ```
 src/assets/       投放式 SVG 图标，文件名即图标键
-src/canvas/       Canvas 控制器和视口计算，不依赖 Vue
-src/components/   外壳导航、素材卡片、合集卡片、合集编辑器、上传对话框、导出对话框、搜索框、分页器、轮播、调色板、画布、结算弹窗、图标表与 SVG 归一化
-src/composables/  进度与设置的共享状态
+src/canvas/       Canvas 控制器、视口计算和画布配色读取，不依赖 Vue
+src/components/   外壳导航、主题切换、素材卡片、合集卡片、合集编辑器、上传对话框、导出对话框、搜索框、分页器、轮播、调色板、画布、结算弹窗、图标表与 SVG 归一化
+src/composables/  进度、设置与主题的共享状态
 src/data/         分类注册表、关卡数据、素材注册表（素材与预设关卡共享像素数据，ID 独立）和合集注册表
 src/models/       PixelArtwork、Level、Collection / UserCollection 与进度类型
 src/pages/        素材页、合集列表/详情页、制作页、个人中心页、选关页、游戏页（关卡/自由涂色/用户作品共用）
 src/services/     关卡与素材查询、进度判定与存档迁移、成绩统计与作品集、分块几何、图片转关卡、图片解码、用户作品存储（IndexedDB）、自定义合集存储（localStorage）、像素图导出（PNG/JPG/WebP）、音效
+src/styles/       主题与尺寸令牌（tokens.css）、全局样式与外壳布局（global.css）
 scripts/          投放图清理脚本和 PNG 转关卡脚本
 ```
