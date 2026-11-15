@@ -34,6 +34,24 @@ const chunked: Level = {
   parts: { cols: 2, rows: 2 },
 }
 
+// 右下块只出现全局色 2/3，缺色 1：块内独立编号应为 2→1、3→2
+const gap: Level = {
+  id: 'gap',
+  title: '缺色',
+  tags: [],
+  category: 'animal',
+  difficulty: 3,
+  width: 4,
+  height: 4,
+  palette: [
+    { id: 1, hex: '#AABBCC', name: '蓝灰' },
+    { id: 2, hex: '#FFEEDD', name: '米色' },
+    { id: 3, hex: '#112233', name: '墨色' },
+  ],
+  cells: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 3, 1, 1, 3, 2],
+  parts: { cols: 2, rows: 2 },
+}
+
 function solid(width: number, height: number, parts?: LevelParts): Level {
   return {
     id: 'solid',
@@ -433,6 +451,15 @@ describe('pixel canvas parts', () => {
     view.draw()
     expect(view.context.fillText).toHaveBeenCalledTimes(16)
     expect(view.context.translate).toHaveBeenLastCalledWith(54, 4)
+    view.controller.destroy()
+  })
+
+  it('labels the cells of a part with continuous local numbers when it skips a global color', () => {
+    const view = setup(Array(16).fill(0), 'painted', true, gap)
+    view.controller.setPart(getPartRects(gap)[3])
+    view.draw()
+    // 右下块只有全局色 2/3，缺色 1 → 格子写块内连续号 1/2，而不是整图的 2/3
+    expect(view.context.fillText.mock.calls.map(([text]) => text)).toEqual(['1', '2', '2', '1'])
     view.controller.destroy()
   })
 

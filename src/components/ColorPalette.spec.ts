@@ -41,6 +41,20 @@ describe('ColorPalette', () => {
     expect(wrapper.emitted('select')).toEqual([[2]])
   })
 
+  it('shows part-local continuous numbers but still emits the global color id', async () => {
+    const wrapper = mount(ColorPalette, {
+      props: {
+        palette, cells, painted, selectedColorId: 1,
+        colorNumbers: new Map([[1, 1], [2, 2], [12, 3]]),
+      },
+    })
+    expect(wrapper.findAll('.swatch-index').map((node) => node.text())).toEqual(['1', '2', '3'])
+    const buttons = wrapper.findAll('.color-swatch')
+    expect(buttons[2].attributes('aria-label')).toBe('颜色 3')
+    await buttons[2].trigger('click')
+    expect(wrapper.emitted('select')).toEqual([[12]])
+  })
+
   it('shows remaining counts by default and hides them on request', () => {
     expect(mountPalette().findAll('.swatch-count').map((node) => node.text().trim()))
       .toEqual(['1', '1', '1'])

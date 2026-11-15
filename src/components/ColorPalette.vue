@@ -8,9 +8,15 @@ const props = withDefaults(defineProps<{
   painted: readonly number[]
   selectedColorId: number | null
   showRemaining?: boolean
-}>(), { showRemaining: true })
+  /** 分块独立编号：全局 ID → 块内连续号；缺省时显示整图原编号。选择仍发全局 ID。 */
+  colorNumbers?: Map<number, number> | null
+}>(), { showRemaining: true, colorNumbers: null })
 
 const emit = defineEmits<{ select: [colorId: number] }>()
+
+function displayNumber(colorId: number): number {
+  return props.colorNumbers?.get(colorId) ?? colorId
+}
 
 const remaining = computed(() => {
   const counts = new Map<number, { target: number; done: number }>()
@@ -40,11 +46,11 @@ function remainingOf(colorId: number): number {
       :class="{ selected: selectedColorId === color.id }"
       :disabled="remainingOf(color.id) === 0"
       :aria-pressed="selectedColorId === color.id"
-      :aria-label="`颜色 ${color.id}`"
+      :aria-label="`颜色 ${displayNumber(color.id)}`"
       @click="emit('select', color.id)"
     >
       <span class="swatch-fill" :style="{ background: color.hex }" aria-hidden="true">
-        <span class="swatch-index">{{ color.id }}</span>
+        <span class="swatch-index">{{ displayNumber(color.id) }}</span>
       </span>
       <span v-if="showRemaining" class="swatch-count">{{ remainingOf(color.id) }}</span>
     </button>

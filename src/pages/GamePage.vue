@@ -14,7 +14,7 @@ import { usePaintOrigin } from '../composables/usePaintOrigin'
 import { playPaintSound } from '../services/audioService'
 import { getArtworkById, isUserArtwork } from '../services/artworkService'
 import { getUserArtwork } from '../services/artworkStorage'
-import { getLevelById, getInteractiveCellCount, getPartRects } from '../services/levelService'
+import { getLevelById, getInteractiveCellCount, getPartRects, getPartColorNumbers } from '../services/levelService'
 
 const route = useRoute()
 const router = useRouter()
@@ -205,12 +205,18 @@ const paletteCells = computed(() => {
 })
 
 // 分块时数量为 0 的颜色从调色板里撤掉而不是摆一排禁用格；
-// 颜色编号保持整图原编号，格子上的数字不受影响
+// 编号改用块内独立连续编号（partColorNumbers），缺号不再出现，格子与调色板一致
 const paletteColors = computed(() => {
   const palette = work.value?.palette ?? []
   if (!isChunked.value) return palette
   return palette.filter((color) => (remainingCounts.value.get(color.id) ?? 0) > 0)
 })
+
+// 当前块的独立连续编号（全局 ID → 块内 1..M）；画布内部按同一函数自推，两边共用同一张表。
+// 不分块或预览阶段传 null，调色板显示整图原编号。
+const partColorNumbers = computed(() =>
+  work.value && currentPart.value ? getPartColorNumbers(work.value, currentPart.value) : null,
+)
 
 function firstAvailableColor(): number | null {
   for (const color of work.value?.palette ?? []) {
@@ -562,6 +568,7 @@ function backToList(): void {
       :painted="currentProgress.painted"
       :selected-color-id="selectedColorId"
       :show-remaining="showRemaining"
+      :color-numbers="partColorNumbers"
       @select="selectedColorId = $event"
     />
 

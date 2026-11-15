@@ -5,6 +5,7 @@ import {
   getInteractiveCellCount,
   getLevelById,
   getLevels,
+  getPartColorNumbers,
   getPartIndex,
   getPartRects,
   normalizeParts,
@@ -226,6 +227,61 @@ describe('level parts', () => {
   it('accepts a chunked level through the regular validation', () => {
     expect(() => validateLevel(grid(8, 8, { cols: 3, rows: 3 }))).not.toThrow()
     expect(() => validateLevel(grid(8, 8, { cols: 9, rows: 9 }))).not.toThrow()
+  })
+})
+
+describe('getPartColorNumbers', () => {
+  const numbered: Level = {
+    ...sample,
+    id: 'numbered',
+    width: 6,
+    height: 6,
+    palette: [1, 2, 3, 4, 5, 6].map((id) => ({ id, hex: '#AABBCC', name: `色 ${id}` })),
+    cells: Array<number>(36).fill(1),
+    parts: { cols: 2, rows: 2 },
+  }
+
+  function fillPart(base: Level, partIndex: number, colors: number[]): Level {
+    const rect = getPartRects(base)[partIndex]
+    const cells = [...base.cells]
+    let k = 0
+    for (let row = rect.y; row < rect.y + rect.height; row += 1) {
+      for (let column = rect.x; column < rect.x + rect.width; column += 1) {
+        cells[row * base.width + column] = colors[k % colors.length]
+        k += 1
+      }
+    }
+    return { ...base, cells }
+  }
+
+  it('renumbers the colors present in a part continuously, skipping absent ones', () => {
+    // 右下块放 1/2/3/5/6，缺全局色 4 → 块内显示 1/2/3/4/5
+    const level = fillPart(numbered, 3, [1, 2, 3, 5, 6])
+    const rect = getPartRects(level)[3]
+    expect([...getPartColorNumbers(level, rect).entries()]).toEqual([
+      [1, 1], [2, 2], [3, 3], [5, 4], [6, 5],
+    ])
+  })
+
+  it('keeps identity numbering when a part has every color in order', () => {
+    const level = fillPart(numbered, 0, [1, 2, 3, 4, 5, 6])
+    const rect = getPartRects(level)[0]
+    expect([...getPartColorNumbers(level, rect).entries()]).toEqual([
+      [1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6],
+    ])
+  })
+
+  it('numbers colors in palette order regardless of cell layout', () => {
+    // 块内只放全局色 6 和 2，按调色板顺序 2 在前 → 2→1、6→2
+    const level = fillPart(numbered, 3, [6, 2])
+    expect([...getPartColorNumbers(level, getPartRects(level)[3]).entries()]).toEqual([
+      [2, 1], [6, 2],
+    ])
+  })
+
+  it('returns an empty map for a part with no interactive cells', () => {
+    const level = fillPart(numbered, 3, [0])
+    expect(getPartColorNumbers(level, getPartRects(level)[3]).size).toBe(0)
   })
 })
 

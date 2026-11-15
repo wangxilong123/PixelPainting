@@ -142,3 +142,24 @@ export function getPartIndex(level: PixelArtwork, cellIndex: number): number {
   const row = axisPart(splitAxis(level.height, rows), Math.floor(cellIndex / level.width))
   return row * cols + column
 }
+
+// 分块独立编号：块内出现的颜色按整图调色板顺序（即全局 ID 升序）重排成连续的 1..M，
+// 缺号不再出现——某块没有全局色 4 时，块内的 1/2/3/5/6 显示成 1/2/3/4/5。
+// 编号按块内全部颜色算、不随涂完而变动；调色板与格子共用同一张表，涂色仍按全局 ID 落档。
+export function getPartColorNumbers(level: PixelArtwork, rect: PartRect): Map<number, number> {
+  const present = new Set<number>()
+  for (let row = rect.y; row < rect.y + rect.height; row += 1) {
+    for (let column = rect.x; column < rect.x + rect.width; column += 1) {
+      const target = level.cells[row * level.width + column]
+      if (target !== 0) present.add(target)
+    }
+  }
+  const numbers = new Map<number, number>()
+  let next = 1
+  for (const color of level.palette) {
+    if (!present.has(color.id)) continue
+    numbers.set(color.id, next)
+    next += 1
+  }
+  return numbers
+}

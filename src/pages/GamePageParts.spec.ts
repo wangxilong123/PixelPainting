@@ -187,8 +187,9 @@ function emitProgress(canvas: VueWrapper<any>): void {
   if (paintedCount === total) canvas.vm.$emit('completed')
 }
 
-function swatch(wrapper: VueWrapper<any>, colorId: number) {
-  return wrapper.find(`.color-swatch[aria-label="颜色 ${colorId}"]`)
+// aria-label 写的是块内独立编号（连续 1..M），不是整图全局 ID
+function swatch(wrapper: VueWrapper<any>, number: number) {
+  return wrapper.find(`.color-swatch[aria-label="颜色 ${number}"]`)
 }
 
 describe('GamePage chunked painting', () => {
@@ -234,6 +235,43 @@ describe('GamePage chunked painting', () => {
       expect(swatch(wrapper, 2).find('.swatch-count').text()).toBe('8')
       expect(swatch(wrapper, 3).exists()).toBe(false)
       expect(swatch(wrapper, 1).attributes('aria-pressed')).toBe('true')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('numbers each part continuously and independently while painting still uses global ids', async () => {
+    const { wrapper, stub } = await mountGame()
+    try {
+      const canvas = wrapper.findComponent(stub)
+      const indices = () => wrapper.findAll('.swatch-index').map((node) => node.text())
+      const advance = async (partIndex: number) => {
+        paintPart(canvas, partIndex)
+        emitProgress(canvas)
+        await flushPromises()
+        await button(wrapper, '下一块').trigger('click')
+        await flushPromises()
+      }
+
+      // 第 1 块有全局 1、2 号色 → 块内 1、2（连续，原样）
+      await button(wrapper, '开始涂色').trigger('click')
+      await flushPromises()
+      expect(indices()).toEqual(['1', '2'])
+
+      // 第 2 块只有全局 3 号色 → 块内独立编号从 1 起，缺号不再出现；选中色仍是全局 3
+      await advance(0)
+      expect(indices()).toEqual(['1'])
+      expect(canvas.props('selectedColorId')).toBe(3)
+
+      // 第 3 块同样只有全局 3 号色 → 块内仍从 1 起，与上一块互不影响
+      await advance(1)
+      expect(indices()).toEqual(['1'])
+      expect(canvas.props('selectedColorId')).toBe(3)
+
+      // 第 4 块有全局 1、2 号色 → 块内 1、2，选中色回到全局 1
+      await advance(2)
+      expect(indices()).toEqual(['1', '2'])
+      expect(canvas.props('selectedColorId')).toBe(1)
     } finally {
       wrapper.unmount()
     }
@@ -297,12 +335,14 @@ describe('GamePage chunked painting', () => {
       const progress = await session()
       expect(progress.currentProgress.value?.partIndex).toBe(1)
 
-      // 第 2 块只有 3 号色：1、2 号色不显示，选中色自动切到 3
+      // 第 2 块只有全局 3 号色：块内独立编号把它显示成 1，1、2 号色这块没有不显示
       expect(wrapper.findAll('.color-swatch')).toHaveLength(1)
-      expect(swatch(wrapper, 1).exists()).toBe(false)
+      expect(swatch(wrapper, 1).find('.swatch-count').text()).toBe('8')
+      expect(swatch(wrapper, 1).attributes('aria-pressed')).toBe('true')
       expect(swatch(wrapper, 2).exists()).toBe(false)
-      expect(swatch(wrapper, 3).find('.swatch-count').text()).toBe('8')
-      expect(swatch(wrapper, 3).attributes('aria-pressed')).toBe('true')
+      expect(swatch(wrapper, 3).exists()).toBe(false)
+      // 显示是块内号 1，选中色仍是全局 ID 3
+      expect(canvas.props('selectedColorId')).toBe(3)
     } finally {
       wrapper.unmount()
     }
@@ -333,7 +373,8 @@ describe('GamePage chunked painting', () => {
       expect(wrapper.findComponent(stub).props('part')).toEqual(partRects[1])
       const progress = await session()
       expect(progress.currentProgress.value?.partIndex).toBe(1)
-      expect(swatch(wrapper, 3).find('.swatch-count').text()).toBe('7')
+      // 全局 3 号色在第 2 块显示成块内号 1，已涂掉 1 格剩 7
+      expect(swatch(wrapper, 1).find('.swatch-count').text()).toBe('7')
     } finally {
       wrapper.unmount()
     }

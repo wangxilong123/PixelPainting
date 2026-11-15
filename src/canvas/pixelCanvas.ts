@@ -1,6 +1,6 @@
 import type { PixelArtwork } from '../models/artwork'
 import type { LevelViewport } from '../models/level'
-import type { PartRect } from '../services/levelService'
+import { getPartColorNumbers, type PartRect } from '../services/levelService'
 import { cellsAlongSegment, screenToCell, screenToWorld, type Cell, type Point } from '../utils/coordinates'
 import { hexChannels, readCanvasTheme } from './canvasTheme'
 import {
@@ -115,6 +115,8 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
   let emptyFills = buildEmptyFills()
   let viewport = createDefaultViewport()
   let part: PartRect | null = null
+  // 当前块的独立连续编号（全局 ID → 块内 1..M）；不分块时为 null，格子写整图原编号
+  let partNumbers: Map<number, number> | null = null
   let overview: PartOverview | null = null
   let animation: ViewportAnimation | undefined
   let selectedColor: number | null = null
@@ -269,13 +271,15 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
         context.strokeStyle = theme.grid
         context.strokeRect(x, y, cellSize, cellSize)
 
+        // 分块时格子写块内独立编号（连续 1..M），不分块写整图原编号
+        const label = partNumbers?.get(target) ?? target
         // 编号按屏幕恒定字号：缩小时不再糊到隐藏，放大时也不超过格子留边
-        const fontPx = labelFont(target)
+        const fontPx = labelFont(label)
         const screenFont = Math.min(Math.max(fontPx * view.scale, fontPx), cellSize * view.scale - 4)
         if (screenFont >= minLabelPixels) {
           context.fillStyle = theme.label
           context.font = `${screenFont / view.scale}px system-ui, sans-serif`
-          context.fillText(String(target), x + cellSize / 2, y + cellSize / 2, cellSize - 4)
+          context.fillText(String(label), x + cellSize / 2, y + cellSize / 2, cellSize - 4)
         }
         if (target === selectedColor) highlight(x, y, theme.select, 1, view.scale)
         if (index === hintIndex) highlight(x, y, theme.hint, 2, view.scale)
@@ -608,6 +612,7 @@ export function createPixelCanvas(options: PixelCanvasOptions): PixelCanvasContr
     setPart(rect, animate = false) {
       const from = activeViewport()
       part = rect
+      partNumbers = rect ? getPartColorNumbers(level, rect) : null
       startTransition(from, fitViewport() ?? createDefaultViewport(), animate)
     },
     // 进入整图预览：画整张图、叠分块边界；退出预览只清状态，视口交给 setPart 接管
