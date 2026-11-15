@@ -6,6 +6,7 @@ import Pager from '../components/Pager.vue'
 import PixelIcon from '../components/PixelIcon.vue'
 import SearchBar from '../components/SearchBar.vue'
 import UploadDialog from '../components/UploadDialog.vue'
+import { useMasonry } from '../composables/useMasonry'
 import type { PixelArtwork } from '../models/artwork'
 import { artworkMatchesQuery } from '../services/artworkService'
 import {
@@ -36,6 +37,10 @@ const paged = computed(() => {
   const start = (page.value - 1) * pageSize
   return filtered.value.slice(start, start + pageSize)
 })
+
+// 作品高矮不一（预览随图片宽高比长高），用最短列瀑布流紧凑排布，不按行最高对齐
+const gridRef = ref<HTMLElement | null>(null)
+useMasonry(gridRef, () => paged.value)
 
 watch(query, () => {
   page.value = 1
@@ -128,7 +133,7 @@ async function undoDelete(): Promise<void> {
       <SearchBar v-model="query" placeholder="搜索作品名称或标签" label="搜索作品" />
       <p class="studio-count" aria-live="polite">共 {{ filtered.length }} 幅作品</p>
 
-      <div v-if="paged.length > 0" class="artwork-grid">
+      <div v-if="paged.length > 0" ref="gridRef" class="artwork-grid">
         <div v-for="artwork in paged" :key="artwork.id" class="studio-item">
           <ArtworkCard :artwork="artwork" />
           <div class="studio-tools">
@@ -272,10 +277,9 @@ async function undoDelete(): Promise<void> {
   color: var(--color-text-muted);
 }
 
+/* 瀑布流容器：子项由 useMasonry 绝对定位，高度取最高列；列数/间距在 composable 里按断点与 --space-4 计算 */
 .artwork-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-4);
+  position: relative;
 }
 
 .studio-item {
@@ -401,17 +405,7 @@ async function undoDelete(): Promise<void> {
   color: inherit;
 }
 
-@media (max-width: 1024px) {
-  .artwork-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
 @media (max-width: 560px) {
-  .artwork-grid {
-    grid-template-columns: 1fr;
-  }
-
   .studio-undo {
     left: var(--space-4);
     right: var(--space-4);
