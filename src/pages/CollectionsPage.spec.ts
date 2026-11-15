@@ -89,14 +89,14 @@ describe('CollectionsPage', () => {
       expect(wrapper.get('.cover-mine').text()).toBe('我的')
       expect(wrapper.get('.collections-count').text()).toBe(`共 ${presetCollections.length + 1} 个合集`)
       expect(wrapper.find('.collection-tools').exists()).toBe(true)
-      expect(loadUserCollections()[0].artworkIds).toEqual(['art-001', 'art-002'])
+      expect(loadUserCollections()[0].artworkIds).toEqual(['art-004', 'art-005'])
     } finally {
       wrapper.unmount()
     }
   })
 
   it('edits a user collection in place from the row tools', async () => {
-    const record = saveUserCollection({ title: '待编辑', tags: [], artworkIds: ['art-001'] })
+    const record = saveUserCollection({ title: '待编辑', tags: [], artworkIds: ['art-004'] })
     const { wrapper } = await mountPage()
     try {
       await wrapper.get('.collection-edit').trigger('click')
@@ -116,7 +116,7 @@ describe('CollectionsPage', () => {
   })
 
   it('deletes a user collection with two-step confirm and restores it via undo', async () => {
-    saveUserCollection({ title: '待删除', tags: [], artworkIds: ['art-001'] })
+    saveUserCollection({ title: '待删除', tags: [], artworkIds: ['art-004'] })
     const { wrapper } = await mountPage()
     try {
       expect(wrapper.findAll('.collection-card')).toHaveLength(presetCollections.length + 1)
@@ -161,10 +161,21 @@ describe('CollectionsPage', () => {
       cells: [1],
       thumbnail: 'data:image/png;base64,COVER',
     }
+    // 预设素材现在都带缩略图，无缩略图回退分支改用一幅合成用户小图
+    const noThumb: PixelArtwork = {
+      id: 'user-cover-no-thumb',
+      title: '无缩略图小图',
+      tags: ['原创'],
+      width: 1,
+      height: 1,
+      palette: [{ id: 1, hex: '#FFCC66', name: '琥珀' }],
+      cells: [1],
+    }
     registerUserArtwork(artwork)
+    registerUserArtwork(noThumb)
     try {
       saveUserCollection({ title: '有缩略图', tags: [], artworkIds: [artwork.id] })
-      saveUserCollection({ title: '无缩略图', tags: [], artworkIds: ['art-001'] })
+      saveUserCollection({ title: '无缩略图', tags: [], artworkIds: [noThumb.id] })
       const { wrapper } = await mountPage()
       try {
         const cards = wrapper.findAll('.collection-card')
@@ -179,6 +190,7 @@ describe('CollectionsPage', () => {
       }
     } finally {
       unregisterUserArtwork(artwork.id)
+      unregisterUserArtwork(noThumb.id)
     }
   })
 })

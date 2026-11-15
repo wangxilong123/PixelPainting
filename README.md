@@ -67,7 +67,7 @@ npm run build      # vue-tsc 类型检查 + vite build
 | `id` | 全局唯一，路由参数用它 |
 | `title` | 中文合集名 |
 | `tags` | 标签列表，列表页搜索匹配名称和标签 |
-| `cover` | 封面图地址，复用内含素材的缩略图；留空时回退到首幅成员的缩略图，首幅也没有缩略图（小图预设）才用 `PixelPreview`。用户合集 `cover` 恒为空，封面取首幅成员缩略图——上传的大图若走 `PixelPreview` 会缩成亚像素格点、视觉上等于没封面 |
+| `cover` | 封面图地址，复用内含素材的缩略图；留空时回退到首幅成员的缩略图，首幅也没有缩略图（如无缩略图的用户作品）才用 `PixelPreview`。用户合集 `cover` 恒为空，封面取首幅成员缩略图——上传的大图若走 `PixelPreview` 会缩成亚像素格点、视觉上等于没封面 |
 | `artworkIds` | 内含素材 ID，详情页按这个顺序展示 |
 
 注册表加载时校验 ID 不重复、引用的素材都存在，违反直接抛错。新增预设合集只改 `src/data/collections.ts`，不用动组件。查询走 `src/services/artworkService.ts` 的 `searchCollections`（空词返回全部，按名称或标签匹配）和 `getCollectionById`（返回 `{ collection, artworks }`，未知 ID 返回 `undefined`）。
@@ -136,7 +136,7 @@ src/assets/       投放式 SVG 图标，文件名即图标键
 src/canvas/       Canvas 控制器、视口计算和画布配色读取，不依赖 Vue
 src/components/   外壳导航、主题切换、素材卡片、合集卡片、合集编辑器、上传对话框、导出对话框、搜索框、分页器、轮播、调色板、画布、结算弹窗、图标表与 SVG 归一化
 src/composables/  进度、设置与主题的共享状态
-src/data/         分类注册表、关卡数据、素材注册表（素材与预设关卡共享像素数据，ID 独立）和合集注册表
+src/data/         分类注册表、关卡数据、素材注册表（复用关卡像素数据、ID 独立；橘猫/红苹果/盆栽小花只留关卡模式、不进素材库，故素材比关卡少三幅）和合集注册表
 src/models/       PixelArtwork、Level、Collection / UserCollection 与进度类型
 src/pages/        素材页、合集列表/详情页、制作页、个人中心页、选关页、游戏页（关卡/自由涂色/用户作品共用）
 src/services/     关卡与素材查询、进度判定与存档迁移、成绩统计与作品集、分块几何、图片转关卡、图片解码、用户作品存储（IndexedDB）、自定义合集存储（localStorage）、发布到素材库（localStorage）、像素图导出（PNG/JPG/WebP）、音效

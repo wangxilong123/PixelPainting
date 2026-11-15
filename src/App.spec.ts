@@ -22,7 +22,7 @@ describe('App', () => {
     try {
       expect(router.currentRoute.value.name).toBe('materials')
       expect(wrapper.get('main').text()).toContain('素材库')
-      expect(wrapper.get('main').text()).toContain('橘猫')
+      expect(wrapper.get('main').text()).toContain('甜甜圈')
       expect(wrapper.findAll('.sidebar-link')).toHaveLength(5)
       expect(wrapper.get('.sidebar-brand').text()).toContain('像素涂色')
     } finally {
@@ -39,7 +39,7 @@ describe('App', () => {
       game.wrapper.unmount()
     }
 
-    const paint = await mountApp('/paint/art-001')
+    const paint = await mountApp('/paint/art-004')
     try {
       expect(paint.wrapper.find('.app-sidebar').exists()).toBe(false)
       expect(paint.wrapper.find('.game-page').exists()).toBe(true)
@@ -50,10 +50,10 @@ describe('App', () => {
 
   it('registers the paint route with a dynamic artwork ID', () => {
     const router = createAppRouter(createMemoryHistory())
-    const paint = router.resolve('/paint/art-001')
+    const paint = router.resolve('/paint/art-004')
 
     expect(paint.name).toBe('paint')
-    expect(paint.params.artworkId).toBe('art-001')
+    expect(paint.params.artworkId).toBe('art-004')
   })
 
   it('serves the profile section with stats and a portfolio', async () => {

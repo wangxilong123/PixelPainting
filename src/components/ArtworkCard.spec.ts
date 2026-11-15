@@ -3,6 +3,7 @@ import { createMemoryHistory } from 'vue-router'
 import { describe, expect, it } from 'vitest'
 import ArtworkCard from './ArtworkCard.vue'
 import { presetArtworks } from '../data/artworks'
+import type { PixelArtwork } from '../models/artwork'
 import { createAppRouter } from '../router'
 import { getInteractiveCellCount } from '../services/levelService'
 
@@ -34,18 +35,31 @@ describe('ArtworkCard', () => {
   })
 
   it('renders a pixel preview without a thumbnail and an image with one', async () => {
-    const small = await mountCard(0)
+    const router = createAppRouter(createMemoryHistory())
+    await router.push('/')
+    await router.isReady()
+    // 剔除三幅小图后预设素材都带缩略图，无缩略图分支改用一幅合成小图验证
+    const small: PixelArtwork = {
+      id: 'user-card-no-thumb',
+      title: '无缩略图',
+      tags: ['原创'],
+      width: 2,
+      height: 2,
+      palette: [{ id: 1, hex: '#FFCC66', name: '琥珀' }],
+      cells: [1, 1, 1, 1],
+    }
+    const smallWrapper = mount(ArtworkCard, { props: { artwork: small }, global: { plugins: [router] } })
     try {
-      expect(small.artwork.thumbnail).toBeUndefined()
-      expect(small.wrapper.find('.pixel-preview').exists()).toBe(true)
-      expect(small.wrapper.find('img').exists()).toBe(false)
+      expect(small.thumbnail).toBeUndefined()
+      expect(smallWrapper.find('.pixel-preview').exists()).toBe(true)
+      expect(smallWrapper.find('img').exists()).toBe(false)
     } finally {
-      small.wrapper.unmount()
+      smallWrapper.unmount()
     }
 
-    const chunkedIndex = presetArtworks.findIndex((artwork) => artwork.thumbnail !== undefined)
-    const large = await mountCard(chunkedIndex)
+    const large = await mountCard(0)
     try {
+      expect(large.artwork.thumbnail).toBeDefined()
       const img = large.wrapper.get('img.card-thumb')
       expect(img.attributes('src')).toBe(large.artwork.thumbnail)
       expect(large.wrapper.find('.pixel-preview').exists()).toBe(false)

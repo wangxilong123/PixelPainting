@@ -65,9 +65,9 @@ describe('materialPublish', () => {
   })
 
   it('only accepts user artworks, not presets or unknown ids', () => {
-    expect(() => publishArtwork('art-001')).toThrow()
+    expect(() => publishArtwork('art-004')).toThrow()
     expect(() => publishArtwork('user-unknown')).toThrow()
-    expect(isPublishedMaterial('art-001')).toBe(false)
+    expect(isPublishedMaterial('art-004')).toBe(false)
     expect(disk()).toEqual([])
   })
 

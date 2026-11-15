@@ -85,7 +85,7 @@ function paintAllTargets(canvas: VueWrapper<any>): void {
 
 describe('GamePage free painting', () => {
   it('opens any artwork without unlocking and records it as artwork progress', async () => {
-    // art-002 对应的关卡还在锁定中，自由涂色不受解锁顺序限制
+    // 该素材对应的关卡仍在锁定中，自由涂色不受解锁顺序限制
     const { wrapper, stub } = await mountPaint(presetArtworks[1].id)
     try {
       expect(wrapper.find('.game-page').exists()).toBe(true)

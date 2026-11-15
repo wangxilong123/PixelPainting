@@ -200,9 +200,10 @@ describe('ProfilePage', () => {
 
   it('shows one card for a picture completed both as a level and as a material', async () => {
     const { presetArtworks, getLevels, createAppRouter, ProfilePage } = await loadProfile()
-    const [firstLevel] = getLevels()
-    const twin = presetArtworks.find((artwork) => artwork.title === firstLevel.title)
-    if (!twin) throw new Error('preset twin of the first level is missing')
+    // 前三幅小图已退出素材库，改用仍有素材孪生的首幅预设（甜甜圈）验证去重
+    const twin = presetArtworks[0]
+    const firstLevel = getLevels().find((level) => level.title === twin.title)
+    if (!firstLevel) throw new Error('level twin of the first material is missing')
     seed({
       [firstLevel.id]: completed(firstLevel, 'level', older),
       [twin.id]: completed(twin, 'artwork', newer),

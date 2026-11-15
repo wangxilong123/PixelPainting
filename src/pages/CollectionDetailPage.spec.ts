@@ -53,7 +53,7 @@ describe('CollectionDetailPage', () => {
 
       await wrapper.get('.search-clear').trigger('click')
       await flushPromises()
-      expect(wrapper.findAll('.artwork-card')).toHaveLength(4)
+      expect(wrapper.findAll('.artwork-card')).toHaveLength(3)
     } finally {
       wrapper.unmount()
     }
@@ -96,13 +96,13 @@ describe('CollectionDetailPage', () => {
 
 describe('CollectionDetailPage user collections', () => {
   it('shows the mine tag, tools and members in order for a user collection', async () => {
-    const record = saveUserCollection({ title: '我的合集', tags: ['原创'], artworkIds: ['art-002', 'art-001'] })
+    const record = saveUserCollection({ title: '我的合集', tags: ['原创'], artworkIds: ['art-005', 'art-004'] })
     const { wrapper } = await mountDetail(record.id)
     try {
       expect(wrapper.get('.detail-heading h2').text()).toBe('我的合集')
       expect(wrapper.get('.detail-mine-tag').text()).toBe('我的')
       expect(wrapper.get('.detail-total').text()).toBe('2 幅素材')
-      expect(wrapper.findAll('.card-title').map((node) => node.text())).toEqual(['红苹果', '橘猫'])
+      expect(wrapper.findAll('.card-title').map((node) => node.text())).toEqual(['火箭', '甜甜圈'])
       expect(wrapper.find('.detail-edit').exists()).toBe(true)
       expect(wrapper.find('.detail-delete').exists()).toBe(true)
     } finally {
@@ -121,7 +121,7 @@ describe('CollectionDetailPage user collections', () => {
   })
 
   it('edits the collection in place from the detail head', async () => {
-    const record = saveUserCollection({ title: '原名', tags: [], artworkIds: ['art-001'] })
+    const record = saveUserCollection({ title: '原名', tags: [], artworkIds: ['art-004'] })
     const { wrapper } = await mountDetail(record.id)
     try {
       await wrapper.get('.detail-edit').trigger('click')
@@ -141,7 +141,7 @@ describe('CollectionDetailPage user collections', () => {
   })
 
   it('deletes with a two-step confirm and restores through the undo bar', async () => {
-    const record = saveUserCollection({ title: '删了又恢复', tags: [], artworkIds: ['art-001'] })
+    const record = saveUserCollection({ title: '删了又恢复', tags: [], artworkIds: ['art-004'] })
     const { wrapper } = await mountDetail(record.id)
     try {
       await wrapper.get('.detail-delete').trigger('click')
@@ -179,7 +179,7 @@ describe('CollectionDetailPage user collections', () => {
     }
     registerUserArtwork(artwork)
     try {
-      const record = saveUserCollection({ title: '封面详情', tags: [], artworkIds: [artwork.id, 'art-001'] })
+      const record = saveUserCollection({ title: '封面详情', tags: [], artworkIds: [artwork.id, 'art-004'] })
       const { wrapper } = await mountDetail(record.id)
       try {
         expect(wrapper.get('.detail-cover img').attributes('src')).toBe(artwork.thumbnail)

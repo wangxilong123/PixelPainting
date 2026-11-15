@@ -4,28 +4,22 @@ import foxCover from './levels/level-006.png'
 import penguinCover from './levels/level-008.png'
 
 // 合集是素材的策展分组，复用现有素材与缩略图，不引入新像素数据。
-// 封面取内含素材的缩略图；新手入门三幅都是小图无缩略图，留空让卡片回退到像素预览。
+// 封面取首幅成员的缩略图。橘猫/红苹果/盆栽小花已从素材库剔除，新手入门合集随之删除，
+// 动物伙伴与美味食光只保留仍在库的成员。
 export const presetCollections: readonly Collection[] = [
-  {
-    id: 'col-starter',
-    title: '新手入门',
-    tags: ['入门', '简单', '小图'],
-    cover: '',
-    artworkIds: ['art-001', 'art-002', 'art-003'],
-  },
   {
     id: 'col-animals',
     title: '动物伙伴',
     tags: ['动物', '可爱', '伙伴'],
     cover: foxCover,
-    artworkIds: ['art-001', 'art-006', 'art-007', 'art-008'],
+    artworkIds: ['art-006', 'art-007', 'art-008'],
   },
   {
     id: 'col-food',
     title: '美味食光',
     tags: ['食物', '甜点', '水果'],
     cover: donutCover,
-    artworkIds: ['art-002', 'art-004'],
+    artworkIds: ['art-004'],
   },
   {
     id: 'col-big',
