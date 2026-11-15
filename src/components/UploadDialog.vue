@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import PixelIcon from './PixelIcon.vue'
+import ExportDialog from './ExportDialog.vue'
 import type { PixelArtwork } from '../models/artwork'
 import type { Level, LevelParts } from '../models/level'
 import { newUserArtworkId, saveUserArtwork } from '../services/artworkStorage'
@@ -28,6 +29,7 @@ const saving = ref(false)
 const dragOver = ref(false)
 const error = ref<string | null>(null)
 const lightboxOpen = ref(false)
+const exportOpen = ref(false)
 
 // 预览画布的内禀渲染基准：按最长边缩到这个像素量级，再交给 CSS 填满预览框，
 // 配合 image-rendering: pixelated 放大也不糊；想更精细调大这个数即可
@@ -231,6 +233,7 @@ function reset(): void {
   saving.value = false
   dragOver.value = false
   lightboxOpen.value = false
+  exportOpen.value = false
 }
 
 function commitGrid(): void {
@@ -242,6 +245,7 @@ function commitGrid(): void {
 
 function onKeydown(event: KeyboardEvent): void {
   if (event.key !== 'Escape') return
+  if (exportOpen.value) return
   if (lightboxOpen.value) {
     lightboxOpen.value = false
     return
@@ -313,6 +317,10 @@ onBeforeUnmount(() => {
           <button type="button" class="change-image" @click="fileInput?.click()">
             <PixelIcon name="replay" />
             <span>换一张图片</span>
+          </button>
+          <button type="button" class="download-image" :disabled="!preview" @click="exportOpen = true">
+            <PixelIcon name="download" />
+            <span>下载像素图</span>
           </button>
         </div>
 
@@ -397,6 +405,8 @@ onBeforeUnmount(() => {
       </figcaption>
     </figure>
   </div>
+
+  <ExportDialog :open="exportOpen" :artwork="preview" @close="exportOpen = false" />
 </template>
 
 <style scoped>
@@ -588,7 +598,8 @@ onBeforeUnmount(() => {
   font-size: var(--font-tag);
 }
 
-.change-image {
+.change-image,
+.download-image {
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
@@ -601,7 +612,8 @@ onBeforeUnmount(() => {
   font: inherit;
   font-size: var(--font-meta);
   cursor: pointer;
-  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .change-image:hover {
@@ -609,9 +621,35 @@ onBeforeUnmount(() => {
   background: var(--color-surface-raised);
 }
 
-.change-image .pixel-icon {
+.change-image .pixel-icon,
+.download-image .pixel-icon {
   width: var(--icon-size-sm);
   height: var(--icon-size-sm);
+}
+
+/* 下载是这次的主行动，用主色描边+淡底与「换一张」区分开 */
+.download-image {
+  border-color: var(--color-primary);
+  background: rgb(255 204 102 / 12%);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.download-image .pixel-icon {
+  color: inherit;
+}
+
+.download-image:hover:not(:disabled) {
+  background: rgb(255 204 102 / 22%);
+}
+
+.download-image:disabled {
+  border-color: var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-weight: 400;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .upload-controls {
@@ -890,7 +928,8 @@ onBeforeUnmount(() => {
     align-items: center;
   }
 
-  .change-image {
+  .change-image,
+  .download-image {
     align-self: center;
   }
 }

@@ -254,4 +254,38 @@ describe('UploadDialog', () => {
       wrapper.unmount()
     }
   })
+
+  it('enables the download button after an image is chosen and opens the export dialog', async () => {
+    const wrapper = mountDialog()
+    try {
+      await selectFile(wrapper)
+      const downloadBtn = wrapper.get('.download-image')
+      expect(downloadBtn.attributes('disabled')).toBeUndefined()
+      expect(wrapper.find('.export-dialog').exists()).toBe(false)
+
+      await downloadBtn.trigger('click')
+      expect(wrapper.find('.export-dialog').exists()).toBe(true)
+      expect(wrapper.get('.export-subtitle').text()).toContain('《小橘猫》')
+      expect(wrapper.get('.export-subtitle').text()).toContain('4×4 格')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('lets Escape close only the stacked export dialog, keeping the upload dialog open', async () => {
+    const wrapper = mountDialog()
+    try {
+      await selectFile(wrapper)
+      await wrapper.get('.download-image').trigger('click')
+      expect(wrapper.find('.export-dialog').exists()).toBe(true)
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+      await flushPromises()
+      expect(wrapper.find('.export-dialog').exists()).toBe(false)
+      expect(wrapper.find('.upload-backdrop').exists()).toBe(true)
+      expect(wrapper.emitted('close')).toBeUndefined()
+    } finally {
+      wrapper.unmount()
+    }
+  })
 })

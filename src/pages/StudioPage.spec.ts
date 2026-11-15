@@ -24,6 +24,9 @@ beforeEach(() => {
   localStorage.clear()
   vi.resetModules()
   vi.stubGlobal('indexedDB', new IDBFactory())
+  // 让连续保存的 createdAt 严格递增：否则同毫秒会触发 byNewest 的 id 升序兜底，最新在前就不成立了
+  let clock = 1_700_000_000_000
+  vi.spyOn(Date, 'now').mockImplementation(() => (clock += 1))
 })
 
 afterEach(() => {
@@ -187,6 +190,31 @@ describe('StudioPage', () => {
       await flushPromises()
       expect(router.currentRoute.value.name).toBe('paint')
       expect(router.currentRoute.value.params.artworkId).toBe('user-a')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('opens the export dialog for the work whose download button is clicked', async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      imageSmoothingEnabled: false, fillStyle: '', fillRect: vi.fn(),
+    } as unknown as CanvasRenderingContext2D)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,QUJD')
+    const { storage, createAppRouter, StudioPage } = await loadStudio()
+    await storage.saveUserArtwork(makeArtwork('user-a', '橘猫'), original())
+    await storage.saveUserArtwork(makeArtwork('user-b', '像素风景'), original())
+    const { wrapper } = await mountStudio(StudioPage, createAppRouter)
+    try {
+      expect(wrapper.find('.export-dialog').exists()).toBe(false)
+      const downloads = wrapper.findAll('.studio-download')
+      expect(downloads).toHaveLength(2)
+      expect(downloads[0].attributes('aria-label')).toBe('下载《像素风景》')
+
+      await downloads[0].trigger('click')
+      await flushPromises()
+      expect(wrapper.find('.export-dialog').exists()).toBe(true)
+      expect(wrapper.get('.export-subtitle').text()).toContain('《像素风景》')
+      expect(wrapper.get('.preview-img').attributes('src')).toBe('data:image/png;base64,QUJD')
     } finally {
       wrapper.unmount()
     }

@@ -21,7 +21,7 @@ npm run build      # vue-tsc 类型检查 + vite build
 - `/game/:levelId` 涂色。左键填色，右键拖拽平移，滚轮缩放，某个颜色涂完后自动切到调色板里的下一个颜色。顶栏「设置」抽屉里可以开关音效、调色板剩余格数和沉浸模式。
 - `/collections` 合集列表。按主题策展的素材分组，每个合集占一整行（左封面、右名称/标签/成员预览），搜索名称或标签实时筛选，点行进入详情。顶部「新建合集」可自定义合集：从预设素材和「我的作品」里点选成员（点选顺序即展示顺序，首幅作封面），支持搜索、按来源筛选、前移/后移/移除/清空调序；用户合集排在预设前面、按创建时间倒序，封面右上角带「我的」徽标，卡片右上角两步删除、删后可撤销。预设合集只读，不显示编辑/删除。
 - `/collections/:collectionId` 合集详情。复用素材卡片网格、搜索与分页，按合集内 `artworkIds` 顺序展示成员，可在合集内再搜索；用户作品成员用其缩略图、预设成员用 `PixelPreview`。用户合集标题旁带「我的」徽标，头部有编辑（原地改名/调成员，保留 ID 与创建时间）和两步删除（删后页面切到「合集已删除」并给撤销条）；未知 ID 显示「未找到这个合集」并给返回链接。
-- `/studio` 制作像素图。上传一张图片，浏览器本地把它降采样、量化成可涂色的像素作品，原图与生成数据存进 IndexedDB；顶部是已制作数量与「添加图片」按钮，下方复用素材网格、搜索与分页，点卡片进入自由涂色，卡片右上角两步删除、删后可撤销。
+- `/studio` 制作像素图。上传一张图片，浏览器本地把它降采样、量化成可涂色的像素作品，原图与生成数据存进 IndexedDB；顶部是已制作数量与「添加图片」按钮，下方复用素材网格、搜索与分页，点卡片进入自由涂色，卡片右上角下载按钮把作品导出为 PNG/JPG/WebP（倍率/背景/质量可调，见「制作像素图」），旁边两步删除、删后可撤销。
 - `/profile` 个人中心。顶部三张成绩卡片：完成作品数、已涂色像素总数、关卡进度（已通关/总关数）。数字全部从现有存档派生，不另设计数器字段：完成作品数按 `isLevelCleared` 判定（重玩后 `painted` 归零但 `bestResult` 还在，作品照样算完成过），已涂色像素按当前已涂上的可交互格累加（未完成的作品也计入像素，但不进作品集），空格不算。下方作品集只收已完成的作品，按完成时间倒序，卡片带来源徽标（关卡/素材/我的作品）和完成时间，点卡片回关卡页或自由涂色页，关卡条目一律写「重玩关卡」并直接进关卡页，不做选关页兜底。支持按名称或标签搜索、每页 12 幅分页。同一幅图的关卡进度与自由涂色进度按 `source` 各算一份（完成作品数照两份累加）；因素材复用关卡的像素数据，作品集按图像内容（宽高 + 调色板 + `cells`）去重，同一幅图只留最近完成的一条，徽标与完成时间跟着该条走，完成时间取最近一次完成（`completedAt`，重玩清零后回退 `bestResult.completedAt`）。
 
 分块关卡（`parts` 是 2×2 或 3×3）走引导式流程：进关先给整图预览——整幅画平铺上色（涂过的格子显示成品色），叠分块边界，完成的块打勾、下一块描亮边标块号，预览只看不涂，滚轮留给页面滚动。点「开始涂色」（有进度则是「继续涂色」）从第一个未完成的块开始，整图与分块之间用 480ms 缓动缩放过渡（系统开了减弱动态效果就直接切换）。一次只涂一块：块外的格子既不绘制也不响应点击，调色板只摆当前块还有剩余格子的颜色（数量为 0 的直接不显示，涂完一个颜色它的色块就实时撤掉），剩余格数和自动换色只数当前块，提示也只在当前块里找选中色的未涂格；非分块关卡保持整幅调色板、涂完的颜色禁用不隐藏。涂满一块自动回到整图预览，点「下一块」进入下一个未完成的块；最后一块涂满时结算弹窗盖在预览上。格子编号和 `cells` 下标始终按整图算，换块时视口回到该块的适配位置，玩家的缩放平移不跨块保留；解锁、完成判定和提示次数都按整图算。
@@ -76,6 +76,7 @@ npm run build      # vue-tsc 类型检查 + vite build
 - `src/components/UploadDialog.vue` 上传对话框：选图/拖入后实时预览（一格一像素硬边 + 分块边界 + 棋盘格透明底），左侧预览框放大到 `--upload-preview-col`（默认 26rem，画布内禀按最长边缩到 `PREVIEW_RENDER_SIZE` 640px 再由 CSS 填满、`image-rendering: pixelated` 放大不糊），预览框右上角「查看大图」按钮开灯箱（z-index 60 盖在对话框上，棋盘格底 + `object-fit: contain`，点背景/关闭按钮/Esc 关灯箱但不关对话框），可调标题、标签（逗号分隔最多 6 个）、格数上限（16–256，默认 64，滑杆旁数字框可手动输入、无上下微调按钮，越界夹回、非法回退当前值）、颜色上限（2–64，默认 24）、分块（自动/不分块/2×2/3×3）。超过 64 宽必须分块，「不分块」禁用、自动档切 3×3；参数变动 120ms 防抖重算。保存时生成一格一像素缩略图。
 - `src/services/artworkStorage.ts` 存储：IndexedDB 库 `pixel-painting-studio`、表 `artworks`，记录 `{ id, artwork, original, createdAt }`（原图 Blob + 生成数据）。写入即注册进 `artworkService` 的响应式表（`shallowReactive` Map），列表/单查都会顺带注册；`main.ts` 启动先 `listUserArtworks()` 暖表再挂载，保证存档解析认得用户作品。读取按最新在前。IndexedDB 不可用或中途读写失败时降级为共用内存表、仅本次会话可用，`storageNotice` 给制作页顶部提示；校验失败仍抛错。删除只删作品，对应涂色进度留给存档解析下次加载时自行丢弃。
 - 涂色进度按 `source: 'user'` 记录，与关卡、预设素材隔离；`GamePage` 进 `/paint/:artworkId` 时若注册表没有就 `getUserArtwork` 按需暖表，用户作品的返回目标是制作页。撤销删除会把原图与生成数据一起重新写回（`undoItem` 用 `shallowRef` 存原始对象，避免响应式代理无法被 IndexedDB 结构化克隆）。
+- `src/components/ExportDialog.vue` + `src/services/artworkExport.ts` 下载导出：制作页卡片右上角和上传对话框预览的「下载像素图」按钮都开同一个导出对话框（z-index 70 盖在上传对话框上，Esc 只关最上层，上传对话框的 Esc 监听在导出打开时让位）。导出只依赖作品的像素数据（宽高 + 调色板 + `cells`），预设素材、用户作品、上传实时预览（`Level`）共用一条渲染路径：离屏 canvas 按整数倍率（1–16，默认 8）放大、`imageSmoothingEnabled=false` 保持像素硬边，再 `toBlob` 编码触发下载。格式 PNG/JPG/WebP，JPG 不支持透明、选透明底时自动铺白；背景可选透明/白/黑/自定义取色，有损格式（JPG/WebP）另给质量滑杆（0.5–1，默认 0.92）。左侧实时预览（同步 `toDataURL`）显示输出尺寸与约文件大小，下载后给精确字节数提示；文件名取标题去掉文件系统非法字符、夹到 40 字、空标题回退「像素图」。尺寸旋钮 `--export-width` 46rem、`--export-preview-col` 18rem。
 
 ## 添加关卡
 
@@ -110,7 +111,7 @@ node scripts/convert-level.mjs 橘猫.png --title 橘猫 --category animal --dif
 
 ## 图标
 
-图标是投放式的：把 SVG 丢进 `src/assets/icons/<图标键>.svg` 就会被 `import.meta.glob` 收进来，文件名必须等于 `src/components/icons.ts` 里的键（`materials`、`collections`、`studio`、`profile`、`levels`、`search`、`check`、`lock` 等），中文名或别的名字匹配不上、会被静默忽略。目前 26 个键都有正式文件：24 个是所有者上传（原件按上传者给的名字留在 `docs/assets/icons/`，不入库），`reset-view`（十字准星）与 `clock-off`（斜杠时钟）是自绘补位，同样走 1024 网格单 path。
+图标是投放式的：把 SVG 丢进 `src/assets/icons/<图标键>.svg` 就会被 `import.meta.glob` 收进来，文件名必须等于 `src/components/icons.ts` 里的键（`materials`、`collections`、`studio`、`profile`、`levels`、`search`、`check`、`lock` 等），中文名或别的名字匹配不上、会被静默忽略。目前 27 个键都有正式文件：24 个是所有者上传（原件按上传者给的名字留在 `docs/assets/icons/`，不入库），`reset-view`（十字准星）、`clock-off`（斜杠时钟）与 `download`（下箭头 + 托盘）是自绘补位，同样走 1024 网格。
 
 `src/components/iconSvg.ts` 运行时归一化：取文件自己的 `viewBox`（上传件是 `0 0 1024 1024`），把所有 `fill`/`stroke` 压成 `currentColor`（`none` 保留），剥掉 `script`、`style`、`foreignObject`、动画节点和 `on*` 事件属性，然后内联进 `PixelIcon`。没有对应文件的键回退到 `icons.ts` 的 16×16 像素路径并带 `crispEdges`；有文件的走平滑矢量、不加 `crispEdges`。组件和调用点只认键名，换图不用改代码。
 
@@ -121,11 +122,11 @@ node scripts/convert-level.mjs 橘猫.png --title 橘猫 --category animal --dif
 ```
 src/assets/       投放式 SVG 图标，文件名即图标键
 src/canvas/       Canvas 控制器和视口计算，不依赖 Vue
-src/components/   外壳导航、素材卡片、合集卡片、合集编辑器、上传对话框、搜索框、分页器、轮播、调色板、画布、结算弹窗、图标表与 SVG 归一化
+src/components/   外壳导航、素材卡片、合集卡片、合集编辑器、上传对话框、导出对话框、搜索框、分页器、轮播、调色板、画布、结算弹窗、图标表与 SVG 归一化
 src/composables/  进度与设置的共享状态
 src/data/         分类注册表、关卡数据、素材注册表（素材与预设关卡共享像素数据，ID 独立）和合集注册表
 src/models/       PixelArtwork、Level、Collection / UserCollection 与进度类型
 src/pages/        素材页、合集列表/详情页、制作页、个人中心页、选关页、游戏页（关卡/自由涂色/用户作品共用）
-src/services/     关卡与素材查询、进度判定与存档迁移、成绩统计与作品集、分块几何、图片转关卡、图片解码、用户作品存储（IndexedDB）、自定义合集存储（localStorage）、音效
+src/services/     关卡与素材查询、进度判定与存档迁移、成绩统计与作品集、分块几何、图片转关卡、图片解码、用户作品存储（IndexedDB）、自定义合集存储（localStorage）、像素图导出（PNG/JPG/WebP）、音效
 scripts/          投放图清理脚本和 PNG 转关卡脚本
 ```

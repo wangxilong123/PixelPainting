@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import ArtworkCard from '../components/ArtworkCard.vue'
+import ExportDialog from '../components/ExportDialog.vue'
 import Pager from '../components/Pager.vue'
 import PixelIcon from '../components/PixelIcon.vue'
 import SearchBar from '../components/SearchBar.vue'
@@ -21,6 +22,8 @@ const query = ref('')
 const page = ref(1)
 const pageSize = 12
 const dialogOpen = ref(false)
+const exportOpen = ref(false)
+const exportTarget = shallowRef<PixelArtwork | null>(null)
 const confirmId = ref<string | null>(null)
 const undoItem = shallowRef<{ artwork: PixelArtwork; original: Blob } | null>(null)
 
@@ -55,6 +58,11 @@ function onSaved(artwork: PixelArtwork): void {
   works.value = [artwork, ...works.value]
   query.value = ''
   page.value = 1
+}
+
+function openExport(artwork: PixelArtwork): void {
+  exportTarget.value = artwork
+  exportOpen.value = true
 }
 
 function requestDelete(id: string): void {
@@ -123,16 +131,26 @@ async function undoDelete(): Promise<void> {
       <div v-if="paged.length > 0" class="artwork-grid">
         <div v-for="artwork in paged" :key="artwork.id" class="studio-item">
           <ArtworkCard :artwork="artwork" />
-          <button
-            type="button"
-            class="studio-delete"
-            :class="{ confirm: confirmId === artwork.id }"
-            :aria-label="confirmId === artwork.id ? `确认删除《${artwork.title}》` : `删除《${artwork.title}》`"
-            @click="requestDelete(artwork.id)"
-          >
-            <PixelIcon :name="confirmId === artwork.id ? 'warn' : 'close'" />
-            <span v-if="confirmId === artwork.id">确认删除</span>
-          </button>
+          <div class="studio-tools">
+            <button
+              type="button"
+              class="studio-download"
+              :aria-label="`下载《${artwork.title}》`"
+              @click="openExport(artwork)"
+            >
+              <PixelIcon name="download" />
+            </button>
+            <button
+              type="button"
+              class="studio-delete"
+              :class="{ confirm: confirmId === artwork.id }"
+              :aria-label="confirmId === artwork.id ? `确认删除《${artwork.title}》` : `删除《${artwork.title}》`"
+              @click="requestDelete(artwork.id)"
+            >
+              <PixelIcon :name="confirmId === artwork.id ? 'warn' : 'close'" />
+              <span v-if="confirmId === artwork.id">确认删除</span>
+            </button>
+          </div>
         </div>
       </div>
       <div v-else class="studio-empty">
@@ -161,6 +179,8 @@ async function undoDelete(): Promise<void> {
     </div>
 
     <UploadDialog :open="dialogOpen" @close="dialogOpen = false" @saved="onSaved" />
+
+    <ExportDialog :open="exportOpen" :artwork="exportTarget" @close="exportOpen = false" />
   </div>
 </template>
 
@@ -262,11 +282,18 @@ async function undoDelete(): Promise<void> {
   position: relative;
 }
 
-.studio-delete {
+.studio-tools {
   position: absolute;
   top: var(--space-2);
   right: var(--space-2);
   z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.studio-download,
+.studio-delete {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -282,6 +309,11 @@ async function undoDelete(): Promise<void> {
     background-color var(--transition-fast);
 }
 
+.studio-download:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
 .studio-delete:hover {
   border-color: var(--color-danger);
   color: var(--color-danger);
@@ -294,6 +326,7 @@ async function undoDelete(): Promise<void> {
   font-weight: 600;
 }
 
+.studio-download .pixel-icon,
 .studio-delete .pixel-icon {
   width: var(--icon-size-sm);
   height: var(--icon-size-sm);
