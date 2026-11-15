@@ -101,11 +101,24 @@ function onKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') emit('close')
 }
 
+// 成员作品被删后 ID 会悬空：不剔掉的话计数虚高，且列表/序号按解析后数组算、
+// 前移/后移/移除按原始数组算，两边错位。保存时顺带把悬空 ID 落盘清掉。
+function pruneSelection(): void {
+  const known = new Set(allArtworks.value.map((artwork) => artwork.id))
+  const next = selectedIds.value.filter((id) => known.has(id))
+  if (next.length !== selectedIds.value.length) selectedIds.value = next
+}
+
+watch(allArtworks, () => {
+  if (props.open) pruneSelection()
+})
+
 watch(() => props.open, (open) => {
   if (open) {
     title.value = props.collection?.title ?? ''
     tagsInput.value = props.collection?.tags.join(', ') ?? ''
     selectedIds.value = [...(props.collection?.artworkIds ?? [])]
+    pruneSelection()
     query.value = ''
     sourceFilter.value = 'all'
     error.value = null

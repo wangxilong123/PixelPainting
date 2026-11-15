@@ -65,7 +65,7 @@ npm run build      # vue-tsc 类型检查 + vite build
 自定义合集是 `UserCollection = Collection & { createdAt, updatedAt }`，存 localStorage（`src/services/collectionStorage.ts`），注册进 `artworkService` 的另一张响应式表（`shallowReactive` Map），与预设表互不导入、无循环依赖。`searchCollections` 把用户合集排在预设前面（用户合集按 `createdAt` 倒序、同时间按 ID 升序），`getCollectionById` 先查预设再查用户表，成员按 `artworkIds` 顺序解析、引用已不存在的作品（如被删的用户作品）自动跳过。存储层模块加载即 `loadUserCollections()` 灌表（深链直达详情页也能认得），列表/详情页 setup 再同步一次；写入用 `useLocalStorage`，磁盘写失败时降级为内存暂存、读取仍返回暂存值。
 
 - `saveUserCollection({ id?, title, tags, artworkIds })`：标题去空白非空且 ≤40 字，成员去重后至少一幅且每幅都能解析，标签去空白去重最多 6 个；带 `id` 是编辑（保留 ID 与 `createdAt`、刷新 `updatedAt`，目标不存在抛错），不带是新建（生成 `col-user-<时间戳36>-<计数36>-<随机4>` 形式 ID）。校验失败抛中文错误、不落盘。
-- `deleteUserCollection(id)` 返回被删记录供撤销，`restoreUserCollection(record)` 原样写回（保留时间戳）。`CollectionEditor.vue` 是新建/编辑共用对话框（尺寸旋钮 `--editor-width` 56rem、`--editor-picker-height` 20rem），列表页与详情页的两步删除（3s 确认窗口）和撤销条（6s）各自管理定时器、卸载时清理。
+- `deleteUserCollection(id)` 返回被删记录供撤销，`restoreUserCollection(record)` 原样写回（保留时间戳）。`CollectionEditor.vue` 是新建/编辑共用对话框（尺寸旋钮 `--editor-width` 56rem、`--editor-picker-height` 20rem），打开时和打开期间注册表变化时都会剔掉已删作品的悬空 ID——计数、序号、前移/后移/移除全按解析后的列表走，保存时顺带把悬空 ID 落盘清掉；列表页与详情页的两步删除（3s 确认窗口）和撤销条（6s）各自管理定时器、卸载时清理。
 
 ## 制作像素图
 

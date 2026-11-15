@@ -17,6 +17,12 @@ const userArtwork: PixelArtwork = {
   cells: [1],
 }
 
+function makeUserArtwork(id: string, title: string): PixelArtwork {
+  return { ...userArtwork, id, title }
+}
+
+const trioIds = ['user-trio-a', 'user-trio-b', 'user-trio-c']
+
 beforeEach(() => {
   localStorage.clear()
   loadUserCollections()
@@ -24,6 +30,7 @@ beforeEach(() => {
 
 afterEach(() => {
   unregisterUserArtwork(userArtwork.id)
+  trioIds.forEach(unregisterUserArtwork)
   localStorage.clear()
   loadUserCollections()
 })
@@ -164,6 +171,56 @@ describe('CollectionEditor', () => {
       expect(record.id).toBe(existing.id)
       expect(record.title).toBe('改过的合集')
       expect(record.artworkIds).toEqual([presetArtworks[1].id, presetArtworks[0].id])
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('drops a deleted member when reopening the editor and persists the pruned ids on save', async () => {
+    const trio = trioIds.map((id, index) => makeUserArtwork(id, `三连图${index + 1}`))
+    trio.forEach(registerUserArtwork)
+    const existing = saveUserCollection({ title: '三幅合集', tags: [], artworkIds: trioIds })
+    // 所有者场景：建完合集后在制作页删掉中间一幅，存储里的 ID 悬空
+    unregisterUserArtwork(trioIds[1])
+
+    const wrapper = mountEditor(existing)
+    try {
+      expect(wrapper.get('.selected-head .field-label').text()).toBe('已选作品（2）')
+      expect(wrapper.get('.editor-hint').text()).toContain('已选 2 幅')
+      expect(wrapper.findAll('.selected-item .selected-title').map((node) => node.text()))
+        .toEqual(['三连图1', '三连图3'])
+
+      await wrapper.get('.editor-actions .primary').trigger('click')
+      await flushPromises()
+      const record = wrapper.emitted('saved')![0][0] as UserCollection
+      expect(record.artworkIds).toEqual([trioIds[0], trioIds[2]])
+      const stored = JSON.parse(localStorage.getItem('pixel-painting:v1:collections')!)
+      expect(stored[0].artworkIds).toEqual([trioIds[0], trioIds[2]])
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('prunes the selection live if a member is unregistered while the editor is open', async () => {
+    const trio = trioIds.map((id, index) => makeUserArtwork(id, `三连图${index + 1}`))
+    trio.forEach(registerUserArtwork)
+    const existing = saveUserCollection({ title: '三幅合集', tags: [], artworkIds: trioIds })
+
+    const wrapper = mountEditor(existing)
+    try {
+      expect(wrapper.get('.selected-head .field-label').text()).toBe('已选作品（3）')
+      unregisterUserArtwork(trioIds[0])
+      await flushPromises()
+
+      expect(wrapper.get('.selected-head .field-label').text()).toBe('已选作品（2）')
+      expect(wrapper.findAll('.selected-item .selected-title').map((node) => node.text()))
+        .toEqual(['三连图2', '三连图3'])
+      expect(wrapper.get('.selected-cover-tag').text()).toBe('封面')
+
+      // 剔除后序号两边对齐：移除第 1 项删的就是可见的第 1 项
+      await wrapper.findAll('.selected-item')[0].get('button[aria-label^="移除"]').trigger('click')
+      expect(wrapper.findAll('.selected-item .selected-title').map((node) => node.text()))
+        .toEqual(['三连图3'])
     } finally {
       wrapper.unmount()
     }
