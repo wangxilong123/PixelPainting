@@ -4,6 +4,7 @@ import ArtworkCard from '../components/ArtworkCard.vue'
 import Pager from '../components/Pager.vue'
 import PixelIcon from '../components/PixelIcon.vue'
 import SearchBar from '../components/SearchBar.vue'
+import { useMasonry } from '../composables/useMasonry'
 import { isUserArtwork, searchArtworks } from '../services/artworkService'
 
 const query = ref('')
@@ -16,6 +17,10 @@ watch(query, () => {
 
 const result = computed(() => searchArtworks(query.value, { page: page.value, pageSize }))
 const totalPages = computed(() => Math.max(1, Math.ceil(result.value.total / pageSize)))
+
+// 素材卡片高矮不一（标签行数不同、无缩略图作品按宽高比长高），用最短列瀑布流紧凑排布，与制作页一致
+const gridRef = ref<HTMLElement | null>(null)
+useMasonry(gridRef, () => result.value.items)
 </script>
 
 <template>
@@ -28,7 +33,7 @@ const totalPages = computed(() => Math.max(1, Math.ceil(result.value.total / pag
     <SearchBar v-model="query" />
     <p class="materials-count" aria-live="polite">共 {{ result.total }} 幅素材</p>
 
-    <div v-if="result.items.length > 0" class="artwork-grid">
+    <div v-if="result.items.length > 0" ref="gridRef" class="artwork-grid">
       <ArtworkCard
         v-for="artwork in result.items"
         :key="artwork.id"
@@ -73,10 +78,9 @@ const totalPages = computed(() => Math.max(1, Math.ceil(result.value.total / pag
   font-size: var(--font-meta);
 }
 
+/* 瀑布流容器：子项由 useMasonry 绝对定位，高度取最高列；列数/间距在 composable 里按断点与 --space-4 计算 */
 .artwork-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-4);
+  position: relative;
 }
 
 .materials-empty {
@@ -98,17 +102,5 @@ const totalPages = computed(() => Math.max(1, Math.ceil(result.value.total / pag
 
 .materials-empty p {
   margin: 0;
-}
-
-@media (max-width: 1024px) {
-  .artwork-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 560px) {
-  .artwork-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

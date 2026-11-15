@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory } from 'vue-router'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { nextTick } from 'vue'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import MaterialsPage from './MaterialsPage.vue'
 import { presetArtworks } from '../data/artworks'
 import { createAppRouter } from '../router'
@@ -95,6 +96,46 @@ describe('MaterialsPage', () => {
       wrapper.unmount()
       unpublishArtwork(art.id)
       unregisterUserArtwork(art.id)
+    }
+  })
+
+  it('lays the cards out as a shortest-column masonry', async () => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
+    vi.stubGlobal('ResizeObserver', class {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    })
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      cb(0)
+      return 0
+    })
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    const { wrapper } = await mountPage()
+    try {
+      const grid = wrapper.get('.artwork-grid').element as HTMLElement
+      Object.defineProperty(grid, 'clientWidth', { value: 1000, configurable: true })
+      // 8 幅预设、4 列、间距 16 → 列宽 238、列左界 0/254/508/762
+      const pattern = [100, 200, 150, 120, 300, 50, 180, 90]
+      const cards = Array.from(grid.children) as HTMLElement[]
+      cards.forEach((card, i) =>
+        Object.defineProperty(card, 'offsetHeight', { value: pattern[i % pattern.length], configurable: true }))
+      window.dispatchEvent(new Event('resize'))
+      await flushPromises()
+      await nextTick()
+
+      expect(cards[0].style.position).toBe('absolute')
+      expect(cards[0].style.width).toBe('238px')
+      expect(cards[0].style.left).toBe('0px')
+      expect(cards[0].style.top).toBe('0px')
+      // 第 5 幅塞进最矮的第 0 列（top 116），不等最高行对齐
+      expect(cards[4].style.left).toBe('0px')
+      expect(cards[4].style.top).toBe('116px')
+      // 最高列是第 0 列：100+16+300+16 = 432，容器高 432 − 16 = 416
+      expect(grid.style.height).toBe('416px')
+    } finally {
+      wrapper.unmount()
+      vi.unstubAllGlobals()
     }
   })
 })

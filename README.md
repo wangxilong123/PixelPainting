@@ -15,7 +15,7 @@ npm run build      # vue-tsc 类型检查 + vite build
 
 应用外壳是左侧固定宽度导航（素材、合集、制作像素图、个人中心、关卡模式）加一条右上角常驻顶栏（全局主题切换），640px 以下导航折成底部标签栏、顶栏左侧补出品牌名；涂色页不占导航，把整屏让给画布。
 
-- `/` 素材库。搜索名称或标签，卡片每行 4 幅（1024px 以下 2 幅、560px 以下 1 幅），每页 12 幅，点卡片进入自由涂色。预设素材排在前面，之后接所有者从制作页发布的自制作品（按发布时间倒序），发布作品左上角带「我的」徽标，和预设共用同一套搜索与分页。
+- `/` 素材库。搜索名称或标签，卡片用瀑布流排布（最短列优先砌砖，列数跟随断点 4/2/1：>1024 四列、561–1024 两列、≤560 一列），高矮不一的卡片紧凑排列、不按行最高对齐，每页 12 幅，点卡片进入自由涂色。预设素材排在前面，之后接所有者从制作页发布的自制作品（按发布时间倒序），发布作品左上角带「我的」徽标，和预设共用同一套搜索与分页。
 - `/paint/:artworkId` 自由涂色。和关卡共用一个游戏页，但没有解锁顺序，顶栏可以关计时；进度按素材 ID 单独记录，不影响关卡解锁。
 - `/levels` 横向轮播选关。滚轮、左右方向键或轮播下方的 ‹ › 按钮切换关卡，回车进入；按钮中间是当前位置（第 n / N 关），卡片居中时顶部统计条跟着更新。滚轮横向到头后会把纵向滚动还给页面，不会把页面困在轮播里。分类 chips 只筛选轮播内容，能不能进按全局顺序判断：前置关卡全部通关才解锁，已通关的关卡即使前置进度被清零也照样能重玩（`isLevelEnterable` = 已解锁或已通关），这类卡片显示「已完成」而不是锁标。
 - `/game/:levelId` 涂色。左键填色，右键拖拽平移，滚轮缩放，某个颜色涂完后自动切到调色板里的下一个颜色。顶栏「设置」抽屉里可以开关音效、调色板剩余格数和沉浸模式，末尾是主题切换按钮。
@@ -87,7 +87,7 @@ npm run build      # vue-tsc 类型检查 + vite build
 - `src/services/artworkStorage.ts` 存储：IndexedDB 库 `pixel-painting-studio`、表 `artworks`，记录 `{ id, artwork, original, createdAt }`（原图 Blob + 生成数据）。写入即注册进 `artworkService` 的响应式表（`shallowReactive` Map），列表/单查都会顺带注册；`main.ts` 启动先 `listUserArtworks()` 暖表再挂载，保证存档解析认得用户作品。读取按最新在前。IndexedDB 不可用或中途读写失败时降级为共用内存表、仅本次会话可用，`storageNotice` 给制作页顶部提示；校验失败仍抛错。删除只删作品，对应涂色进度留给存档解析下次加载时自行丢弃；若该作品已发布到素材库，删除时顺带下架（`unpublishArtwork`），素材库不再显示它。
 - 涂色进度按 `source: 'user'` 记录，与关卡、预设素材隔离；`GamePage` 进 `/paint/:artworkId` 时若注册表没有就 `getUserArtwork` 按需暖表，用户作品的返回目标是制作页。撤销删除会把原图与生成数据一起重新写回（`undoItem` 用 `shallowRef` 存原始对象，避免响应式代理无法被 IndexedDB 结构化克隆）。
 - `src/services/materialPublish.ts` 发布到素材库：`publishArtwork(id)` 只接受用户作品（预设或未知 ID 抛中文错误），把 `{ id, publishedAt }` 写进 localStorage 并注册进 `artworkService` 的第三张响应式表（`shallowReactive` Map，存发布时间）；`unpublishArtwork(id)` 撤回（保留源作品）。这是引用而非复制——素材库直接解析作品 ID 拿图像，删源即自动下架。`searchArtworks` 把发布作品按 `publishedAt` 倒序接在预设后面，解析不到的悬空 ID（源已删）自动跳过。模块加载即 `loadPublishedMaterials()` 灌表，`main.ts` 侧效导入它，深链直达素材库也认得；磁盘数据损坏/重复时按校验过滤。注册表放服务层、持久化放存储层，`materialPublish → artworkService`、`artworkStorage → materialPublish` 单向无环。
-- `src/composables/useMasonry.ts` 作品墙瀑布流：`StudioPage` 的 `.artwork-grid` 不再用 CSS grid（行高被该行最高卡片撑开、矮卡片下留大片空白），改由 `useMasonry` 把卡片绝对定位、按「最短列优先」砌砖——前几幅横向铺满顶部，之后每幅塞进当前最矮的列，容器高度取最高列。列数跟随素材库断点（>1024 四列、561–1024 两列、≤560 一列），间距读设计令牌 `--space-4`；挂载、条目变化、窗口缩放、子元素尺寸变化（缩略图加载后卡片长高）都触发重排。纯函数 `computeMasonryLayout` 脱离 DOM 可单测。
+- `src/composables/useMasonry.ts` 作品墙/素材库瀑布流：`StudioPage` 与 `MaterialsPage` 的 `.artwork-grid` 不再用 CSS grid（行高被该行最高卡片撑开、矮卡片下留大片空白），改由 `useMasonry` 把卡片绝对定位、按「最短列优先」砌砖——前几幅横向铺满顶部，之后每幅塞进当前最矮的列，容器高度取最高列。列数按响应式断点（>1024 四列、561–1024 两列、≤560 一列），间距读设计令牌 `--space-4`；挂载、条目变化（搜索/翻页/发布）、窗口缩放、子元素尺寸变化（缩略图加载后卡片长高）都触发重排。纯函数 `computeMasonryLayout` 脱离 DOM 可单测。合集详情、个人中心两页卡片等高，仍用 CSS grid。
 - `src/components/ExportDialog.vue` + `src/services/artworkExport.ts` 下载导出：制作页卡片右上角和上传对话框预览的「下载像素图」按钮都开同一个导出对话框（z-index 70 盖在上传对话框上，Esc 只关最上层，上传对话框的 Esc 监听在导出打开时让位）。导出只依赖作品的像素数据（宽高 + 调色板 + `cells`），预设素材、用户作品、上传实时预览（`Level`）共用一条渲染路径：离屏 canvas 按整数倍率（1–16，默认 8）放大、`imageSmoothingEnabled=false` 保持像素硬边，再 `toBlob` 编码触发下载。格式 PNG/JPG/WebP，JPG 不支持透明、选透明底时自动铺白；背景可选透明/白/黑/自定义取色，有损格式（JPG/WebP）另给质量滑杆（0.5–1，默认 0.92）。左侧实时预览（同步 `toDataURL`）显示输出尺寸与约文件大小，下载后给精确字节数提示；文件名取标题去掉文件系统非法字符、夹到 40 字、空标题回退「像素图」。尺寸旋钮 `--export-width` 46rem、`--export-preview-col` 18rem。
 
 ## 添加关卡
