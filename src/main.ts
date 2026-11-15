@@ -3,6 +3,8 @@ import App from './App.vue'
 import { createAppRouter } from './router'
 import { useTheme } from './composables/useTheme'
 import { listUserArtworks } from './services/artworkStorage'
+// 侧效导入：模块加载即把已发布作品读进注册表，深链进素材库也认得
+import './services/materialPublish'
 import './styles/tokens.css'
 import './styles/global.css'
 

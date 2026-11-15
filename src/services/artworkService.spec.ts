@@ -10,10 +10,13 @@ import {
   getArtworkById,
   getCollectionById,
   getUserCollection,
+  isPublishedMaterial,
   isUserCollection,
+  registerPublishedMaterial,
   registerUserArtwork,
   searchArtworks,
   searchCollections,
+  unregisterPublishedMaterial,
   unregisterUserArtwork,
 } from './artworkService'
 import { deleteUserCollection, loadUserCollections, saveUserCollection } from './collectionStorage'
@@ -102,6 +105,32 @@ describe('searchArtworks', () => {
     expect(result.items).toHaveLength(1)
     expect(result.total).toBe(2)
     expect(result.items[0].id).toBe(presetArtworks[7].id)
+  })
+})
+
+describe('searchArtworks with published materials', () => {
+  it('appends published user artworks after presets newest-first and skips dangling', () => {
+    const palette = [{ id: 1, hex: '#FFFFFF', name: '白' }]
+    const a: PixelArtwork = { id: 'user-svc-a', title: '甲', tags: [], width: 1, height: 1, palette, cells: [1] }
+    const b: PixelArtwork = { id: 'user-svc-b', title: '乙', tags: [], width: 1, height: 1, palette, cells: [1] }
+    registerUserArtwork(a)
+    registerUserArtwork(b)
+    registerPublishedMaterial(a.id, 1000)
+    registerPublishedMaterial(b.id, 2000)
+    try {
+      expect(isPublishedMaterial(a.id)).toBe(true)
+      const presetIds = presetArtworks.map((artwork) => artwork.id)
+      expect(searchArtworks('').items.map((artwork) => artwork.id)).toEqual([...presetIds, b.id, a.id])
+      expect(searchArtworks('').total).toBe(presetArtworks.length + 2)
+      // 源作品被删后解析不到，自动跳过，不连累其余素材
+      unregisterUserArtwork(a.id)
+      expect(searchArtworks('').items.map((artwork) => artwork.id)).toEqual([...presetIds, b.id])
+    } finally {
+      unregisterPublishedMaterial(a.id)
+      unregisterPublishedMaterial(b.id)
+      unregisterUserArtwork(a.id)
+      unregisterUserArtwork(b.id)
+    }
   })
 })
 

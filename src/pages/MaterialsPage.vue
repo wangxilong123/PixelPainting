@@ -4,7 +4,7 @@ import ArtworkCard from '../components/ArtworkCard.vue'
 import Pager from '../components/Pager.vue'
 import PixelIcon from '../components/PixelIcon.vue'
 import SearchBar from '../components/SearchBar.vue'
-import { searchArtworks } from '../services/artworkService'
+import { isUserArtwork, searchArtworks } from '../services/artworkService'
 
 const query = ref('')
 const page = ref(1)
@@ -22,14 +22,19 @@ const totalPages = computed(() => Math.max(1, Math.ceil(result.value.total / pag
   <div class="materials-page">
     <div class="materials-head">
       <h2>素材库</h2>
-      <p class="materials-intro">挑一幅像素图自由涂色：没有解锁顺序，计时可以关掉。</p>
+      <p class="materials-intro">挑一幅像素图自由涂色：没有解锁顺序，计时可以关掉。带「我的」徽标的是你从制作页发布的作品。</p>
     </div>
 
     <SearchBar v-model="query" />
     <p class="materials-count" aria-live="polite">共 {{ result.total }} 幅素材</p>
 
     <div v-if="result.items.length > 0" class="artwork-grid">
-      <ArtworkCard v-for="artwork in result.items" :key="artwork.id" :artwork="artwork" />
+      <ArtworkCard
+        v-for="artwork in result.items"
+        :key="artwork.id"
+        :artwork="artwork"
+        :badge="isUserArtwork(artwork.id) ? '我的' : ''"
+      />
     </div>
     <div v-else class="materials-empty">
       <PixelIcon name="search" />

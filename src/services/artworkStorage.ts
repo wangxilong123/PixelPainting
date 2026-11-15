@@ -2,6 +2,7 @@ import { readonly, ref } from 'vue'
 import type { PixelArtwork } from '../models/artwork'
 import { registerUserArtwork, unregisterUserArtwork } from './artworkService'
 import { validateLevel } from './levelService'
+import { unpublishArtwork } from './materialPublish'
 
 export type StoredArtwork = {
   id: string
@@ -178,7 +179,7 @@ export async function getUserArtwork(id: string): Promise<StoredArtwork | undefi
   return record
 }
 
-/** 删除作品并注销注册。对应的涂色进度留给存档解析在下次加载时自行丢弃。 */
+/** 删除作品并注销注册，顺带从素材库下架。对应的涂色进度留给存档解析在下次加载时自行丢弃。 */
 export async function deleteUserArtwork(id: string): Promise<void> {
   const db = await getBackend()
   if (db) {
@@ -190,4 +191,5 @@ export async function deleteUserArtwork(id: string): Promise<void> {
   }
   memoryStore.delete(id)
   unregisterUserArtwork(id)
+  unpublishArtwork(id)
 }

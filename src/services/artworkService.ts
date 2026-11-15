@@ -54,6 +54,26 @@ export function isUserArtwork(id: string): boolean {
   return userArtworks.has(id)
 }
 
+// 发布到素材库的用户作品（id → 发布时间戳）。和 userArtworks 一样是响应式注册表，
+// 由 materialPublish 读盘灌入；searchArtworks 把解析得到的发布作品接在预设后面。
+const publishedMaterials = shallowReactive(new Map<string, number>())
+
+export function registerPublishedMaterial(id: string, publishedAt: number): void {
+  publishedMaterials.set(id, publishedAt)
+}
+
+export function unregisterPublishedMaterial(id: string): void {
+  publishedMaterials.delete(id)
+}
+
+export function isPublishedMaterial(id: string): boolean {
+  return publishedMaterials.has(id)
+}
+
+export function listPublishedMaterialIds(): string[] {
+  return [...publishedMaterials.keys()]
+}
+
 // 用户合集与用户作品同一套路：响应式注册表由 collectionStorage 灌入，
 // 查询与卡片渲染读这张表，注册/注销后依赖它的 computed 自动刷新。
 const userCollections = shallowReactive(new Map<string, UserCollection>())
@@ -101,7 +121,12 @@ export function searchArtworks(
 ): ArtworkPage {
   const page = options.page ?? 1
   const pageSize = options.pageSize ?? 12
-  const matched = presetArtworks.filter((artwork) => artworkMatchesQuery(artwork, query))
+  // 预设在前，自己发布的作品按发布时间倒序接在后；解析不到的（源作品已删）自动跳过
+  const published = [...publishedMaterials.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => getArtworkById(id))
+    .filter((artwork): artwork is PixelArtwork => artwork !== undefined)
+  const matched = [...presetArtworks, ...published].filter((artwork) => artworkMatchesQuery(artwork, query))
   const start = (page - 1) * pageSize
   return {
     items: start < 0 ? [] : matched.slice(start, start + pageSize),

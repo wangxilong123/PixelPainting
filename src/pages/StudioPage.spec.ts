@@ -39,7 +39,9 @@ async function loadStudio() {
   const { createAppRouter } = await import('../router')
   const { default: StudioPage } = await import('./StudioPage.vue')
   const { default: UploadDialog } = await import('../components/UploadDialog.vue')
-  return { storage, createAppRouter, StudioPage, UploadDialog }
+  const publish = await import('../services/materialPublish')
+  const service = await import('../services/artworkService')
+  return { storage, createAppRouter, StudioPage, UploadDialog, publish, service }
 }
 
 async function mountStudio(StudioPage: any, createAppRouter: any) {
@@ -215,6 +217,49 @@ describe('StudioPage', () => {
       expect(wrapper.find('.export-dialog').exists()).toBe(true)
       expect(wrapper.get('.export-subtitle').text()).toContain('《像素风景》')
       expect(wrapper.get('.preview-img').attributes('src')).toBe('data:image/png;base64,QUJD')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('publishes a work to the materials library and withdraws it', async () => {
+    const { storage, createAppRouter, StudioPage, service } = await loadStudio()
+    await storage.saveUserArtwork(makeArtwork('user-a', '橘猫'), original())
+    const { wrapper } = await mountStudio(StudioPage, createAppRouter)
+    try {
+      expect(service.isPublishedMaterial('user-a')).toBe(false)
+      const btn = wrapper.get('.studio-publish')
+      expect(btn.classes()).not.toContain('published')
+      expect(btn.attributes('aria-label')).toContain('上传')
+
+      await btn.trigger('click')
+      await flushPromises()
+      expect(service.isPublishedMaterial('user-a')).toBe(true)
+      expect(wrapper.get('.studio-publish').classes()).toContain('published')
+      expect(wrapper.get('.studio-publish').attributes('aria-label')).toContain('撤回')
+
+      await wrapper.get('.studio-publish').trigger('click')
+      await flushPromises()
+      expect(service.isPublishedMaterial('user-a')).toBe(false)
+      expect(wrapper.get('.studio-publish').classes()).not.toContain('published')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('unpublishes a work automatically when it is deleted', async () => {
+    const { storage, createAppRouter, StudioPage, publish, service } = await loadStudio()
+    await storage.saveUserArtwork(makeArtwork('user-a', '橘猫'), original())
+    publish.publishArtwork('user-a')
+    const { wrapper } = await mountStudio(StudioPage, createAppRouter)
+    try {
+      expect(service.isPublishedMaterial('user-a')).toBe(true)
+      await wrapper.get('.studio-delete').trigger('click')
+      await wrapper.get('.studio-delete.confirm').trigger('click')
+      await vi.waitFor(() => {
+        expect(wrapper.find('.studio-undo').exists()).toBe(true)
+      }, { timeout: 5000 })
+      expect(service.isPublishedMaterial('user-a')).toBe(false)
     } finally {
       wrapper.unmount()
     }

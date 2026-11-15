@@ -8,7 +8,7 @@ import SearchBar from '../components/SearchBar.vue'
 import UploadDialog from '../components/UploadDialog.vue'
 import { useMasonry } from '../composables/useMasonry'
 import type { PixelArtwork } from '../models/artwork'
-import { artworkMatchesQuery } from '../services/artworkService'
+import { artworkMatchesQuery, isPublishedMaterial } from '../services/artworkService'
 import {
   deleteUserArtwork,
   getUserArtwork,
@@ -16,6 +16,7 @@ import {
   saveUserArtwork,
   storageNotice,
 } from '../services/artworkStorage'
+import { publishArtwork, unpublishArtwork } from '../services/materialPublish'
 
 const works = ref<PixelArtwork[]>([])
 const loading = ref(true)
@@ -68,6 +69,11 @@ function onSaved(artwork: PixelArtwork): void {
 function openExport(artwork: PixelArtwork): void {
   exportTarget.value = artwork
   exportOpen.value = true
+}
+
+function togglePublish(id: string): void {
+  if (isPublishedMaterial(id)) unpublishArtwork(id)
+  else publishArtwork(id)
 }
 
 function requestDelete(id: string): void {
@@ -137,6 +143,16 @@ async function undoDelete(): Promise<void> {
         <div v-for="artwork in paged" :key="artwork.id" class="studio-item">
           <ArtworkCard :artwork="artwork" />
           <div class="studio-tools">
+            <button
+              type="button"
+              class="studio-publish"
+              :class="{ published: isPublishedMaterial(artwork.id) }"
+              :aria-label="isPublishedMaterial(artwork.id) ? `从素材库撤回《${artwork.title}》` : `上传《${artwork.title}》到素材库`"
+              :title="isPublishedMaterial(artwork.id) ? '从素材库撤回' : '上传至素材库'"
+              @click="togglePublish(artwork.id)"
+            >
+              <PixelIcon name="materials" />
+            </button>
             <button
               type="button"
               class="studio-download"
@@ -296,6 +312,7 @@ async function undoDelete(): Promise<void> {
   gap: var(--space-2);
 }
 
+.studio-publish,
 .studio-download,
 .studio-delete {
   display: inline-flex;
@@ -313,8 +330,15 @@ async function undoDelete(): Promise<void> {
     background-color var(--transition-fast);
 }
 
+.studio-publish:hover,
 .studio-download:hover {
   border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.studio-publish.published {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
   color: var(--color-primary);
 }
 
@@ -330,6 +354,7 @@ async function undoDelete(): Promise<void> {
   font-weight: 600;
 }
 
+.studio-publish .pixel-icon,
 .studio-download .pixel-icon,
 .studio-delete .pixel-icon {
   width: var(--icon-size-sm);

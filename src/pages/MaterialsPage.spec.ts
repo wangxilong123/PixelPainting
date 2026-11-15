@@ -4,6 +4,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import MaterialsPage from './MaterialsPage.vue'
 import { presetArtworks } from '../data/artworks'
 import { createAppRouter } from '../router'
+import type { PixelArtwork } from '../models/artwork'
+import { registerUserArtwork, unregisterUserArtwork } from '../services/artworkService'
+import { publishArtwork, unpublishArtwork } from '../services/materialPublish'
 
 beforeEach(() => {
   localStorage.clear()
@@ -64,6 +67,34 @@ describe('MaterialsPage', () => {
       expect(router.currentRoute.value.params.artworkId).toBe(presetArtworks[1].id)
     } finally {
       wrapper.unmount()
+    }
+  })
+
+  it('shows published user artworks with a 我的 badge and counts them', async () => {
+    const art: PixelArtwork = {
+      id: 'user-mat-1',
+      title: '我的作品',
+      tags: ['原创'],
+      width: 1,
+      height: 1,
+      palette: [{ id: 1, hex: '#FFCC66', name: '琥珀' }],
+      cells: [1],
+    }
+    registerUserArtwork(art)
+    publishArtwork(art.id)
+    const { wrapper } = await mountPage()
+    try {
+      const cards = wrapper.findAll('.artwork-card')
+      expect(cards).toHaveLength(presetArtworks.length + 1)
+      expect(wrapper.get('.materials-count').text()).toBe(`共 ${presetArtworks.length + 1} 幅素材`)
+      const last = cards[cards.length - 1]
+      expect(last.find('.card-title').text()).toBe('我的作品')
+      expect(last.find('.card-badge').text()).toBe('我的')
+      expect(cards[0].find('.card-badge').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
+      unpublishArtwork(art.id)
+      unregisterUserArtwork(art.id)
     }
   })
 })
